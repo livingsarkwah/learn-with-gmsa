@@ -40,31 +40,22 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex" style={SANS}>
       {/* Left brand panel (desktop) */}
-      <div className="hidden lg:flex lg:w-5/12 xl:w-1/2 flex-col justify-between p-12 relative overflow-hidden"
+      <div className="hidden lg:flex lg:w-5/12 xl:w-1/2 flex-col justify-center p-12 relative overflow-hidden"
         style={{ background: "linear-gradient(160deg, #052e16 0%, #14532d 40%, #166534 70%, #16a34a 100%)" }}>
         {[280, 220, 160].map((size, i) => (
           <div key={i} className="absolute rounded-full border border-white/5"
             style={{ width: size, height: size, bottom: -size / 4, right: -size / 4 }} />
-        ))}
-        <div className="relative flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center">
-            <BookOpen className="w-5 h-5 text-white" />
-          </div>
-          <span className="font-black text-lg text-white">Learn with GMSA</span>
-        </div>
+        ))} 
         <div className="relative space-y-6">
           <div>
-            <div className="inline-flex items-center gap-2 bg-yellow-400/20 text-yellow-300 text-xs font-bold px-3 py-1.5 rounded-full mb-4">
-              <Award className="w-3.5 h-3.5" />GMSA Member Portal
-            </div>
             <h2 className="text-3xl xl:text-4xl font-black text-white leading-tight">Your gateway to academic excellence.</h2>
             <p className="text-white/60 mt-3 text-sm leading-relaxed max-w-sm">Access 10,000+ curated resources across all of KNUST's programs.</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { icon: <FolderOpen className="w-4 h-4" />, v: "5,000+", l: "Resources" },
-              { icon: <GraduationCap className="w-4 h-4" />, v: "18", l: "Programs" },
-              { icon: <BookMarked className="w-4 h-4" />, v: "200+", l: "Courses" },
+              { icon: <FolderOpen className="w-4 h-4" />, v: "10,000+", l: "Resources" },
+              { icon: <GraduationCap className="w-4 h-4" />, v: "90+", l: "Programs" },
+              { icon: <BookMarked className="w-4 h-4" />, v: "4000+", l: "Courses" },
               { icon: <Users className="w-4 h-4" />, v: "12k+", l: "Students" },
             ].map(({ icon, v, l }) => (
               <div key={l} className="bg-white/10 rounded-xl p-3">
@@ -146,13 +137,13 @@ export function LoginPage() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">One-Time Password</label>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1 justify-center">
                       {otp.map((digit, i) => (
                         <input key={i} ref={el => { otpRefs.current[i] = el; }}
                           type="text" inputMode="numeric" maxLength={1} value={digit}
                           onChange={e => handleOtpChange(i, e.target.value)}
                           onKeyDown={e => handleOtpKey(i, e)}
-                          className="flex-1 h-12 text-center text-xl font-black bg-input-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all" style={MONO} />
+                          className="w-10 h-10 text-center text-lg font-black bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all" style={MONO} />
                       ))}
                     </div>
                     <p className="text-[11px] text-muted-foreground text-center">OTP expires in 10 minutes</p>
