@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import {
   ChevronLeft, ChevronRight, Download, Eye, Clock, FileText,
-  Play, Tag, Bookmark, BookmarkCheck, Share2, CheckCircle,
+  Play, Tag, Bookmark, BookmarkCheck, Share2, CheckCircle, Mail, MessageCircle, Send,
 } from "lucide-react";
 import { ResourceCard } from "../../components/common/ResourceCard";
 import { ALL_RESOURCES, COLLECTION_ACCENT } from "../../constants/data";
@@ -18,7 +18,11 @@ export function DetailsPage() {
   const saved  = bookmarks.includes(r.id);
   const accent = COLLECTION_ACCENT[r.collection];
   const [downloaded, setDownloaded] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const related = ALL_RESOURCES.filter(x => x.id !== r.id && (x.program === r.program || x.collection === r.collection)).slice(0, 3);
+  const shareUrl = typeof window !== "undefined" ? window.location.href : `/resources/${r.id}`;
+  const shareText = `${r.title} (${r.courseCode})`;
+  const shareMessage = `${shareText}\n${shareUrl}`;
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 pb-24 md:pb-6" style={SANS}>
@@ -148,9 +152,44 @@ export function DetailsPage() {
               className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm border transition-colors ${saved ? "border-primary text-primary bg-primary/5" : "border-border text-muted-foreground hover:border-primary hover:text-primary"}`}>
               {saved ? <><BookmarkCheck className="w-4 h-4" />Bookmarked</> : <><Bookmark className="w-4 h-4" />Bookmark</>}
             </button>
-            <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm border border-border text-muted-foreground hover:bg-muted transition-colors">
+            <button
+              onClick={() => setShareOpen(open => !open)}
+              aria-expanded={shareOpen}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm border border-border text-muted-foreground hover:bg-muted transition-colors"
+            >
               <Share2 className="w-4 h-4" />Share
             </button>
+            {shareOpen && (
+              <div className="grid grid-cols-3 gap-2 pt-1" aria-label="Share resource via">
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(shareMessage)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setShareOpen(false)}
+                  className="flex flex-col items-center gap-1 rounded-xl border border-border px-2 py-2 text-xs font-semibold text-muted-foreground hover:border-emerald-500 hover:text-emerald-600 transition-colors"
+                >
+                  <MessageCircle className="w-4 h-4" />WhatsApp
+                </a>
+                <a
+                  href={`mailto:?subject=${encodeURIComponent(`Learn with GMSA: ${r.title}`)}&body=${encodeURIComponent(shareMessage)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setShareOpen(false)}
+                  className="flex flex-col items-center gap-1 rounded-xl border border-border px-2 py-2 text-xs font-semibold text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                >
+                  <Mail className="w-4 h-4" />Email
+                </a>
+                <a
+                  href={`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(shareText)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => setShareOpen(false)}
+                  className="flex flex-col items-center gap-1 rounded-xl border border-border px-2 py-2 text-xs font-semibold text-muted-foreground hover:border-sky-500 hover:text-sky-600 transition-colors"
+                >
+                  <Send className="w-4 h-4" />Telegram
+                </a>
+              </div>
+            )}
           </div>
 
           <div className="bg-card border border-border rounded-2xl p-5">

@@ -130,13 +130,14 @@ export const PROGRAMS: string[] = Object.values(COLLEGE_PROGRAMS).flat();
 
 export const COLLECTIONS = [
   "Assignments",
-  "Lab Materials",
+  "Lab Reports",
   "Lecture Notes",
   "Past Questions",
   "Slides",
   "Textbooks",
   "Tutorials",
   "Videos",
+  "Project Reports",
 ] as const;
 
 export const LEVELS    = ["100", "200", "300", "400", "500", "600"] as const;
@@ -157,6 +158,7 @@ export const COLLECTION_ACCENT: Record<string, { dot: string; badge: string; dar
 };
 
 // ─── Resources ────────────────────────────────────────────────────────────────
+
 
 export const ALL_RESOURCES: Resource[] = [
   // ── College of Engineering ────────────────────────────────────────────────

@@ -1,0 +1,60 @@
+## Project Assessment
+
+The project is currently a strong UI prototype, but not yet a working production application.
+
+### Highest-priority work
+
+1. **Connect the app to real data**
+   - Public and admin pages use static data from `data.ts`.
+   - Supabase is initialized in `supabase.ts`, but no page actually queries it.
+   - `schema.sql` is empty.
+   - Build the database schema, RLS policies, storage bucket, and data-access hooks first.
+
+2. **Replace fake authentication**
+   - Admin access currently depends on a hard-coded password in `AppContext.tsx:20`.
+   - Student login and OTP are simulated with `setTimeout` in `LoginPage.tsx:19`.
+   - Replace both with real Supabase/server-side authentication and persistent sessions.
+
+3. **Make downloads and uploads real**
+   - Resource downloads only change a local `downloaded` flag in `DetailsPage.tsx:76`.
+   - Upload progress is simulated in `UploadPage.tsx:73`.
+   - Implement Supabase Storage uploads, signed download URLs, file validation, download tracking, retry handling, and access rules.
+
+4. **Finish admin CRUD**
+   - Add, edit, and delete controls in `CoursesPage.tsx` and `ProgramsPage.tsx` are mostly non-functional.
+   - Resource deletion and action menus in `ResourcesPage.tsx` need real mutations and confirmation dialogs.
+   - Settings in `SettingsPage.tsx` only update component state.
+
+5. **Fix data and navigation correctness**
+   - Invalid resource IDs fall back to the first resource in `DetailsPage.tsx:17`; this should show a real not-found state.
+   - Library filters are initialized from the URL only once in `LibraryPage.tsx:21`, so browser back/forward can produce stale filters.
+   - Search filters do not consistently preserve semester and URL state in `SearchPage.tsx:19`.
+   - Public pages should exclude drafts and enforce member-only visibility.
+
+6. **Replace static analytics**
+   - Dashboard and analytics values come from fixed constants in `DashboardPage.tsx` and `AnalyticsPage.tsx`.
+   - Add real download, upload, member, and storage event tracking before relying on these metrics.
+
+7. **Add verification tooling**
+   - `package.json` has only `dev` and `build` scripts.
+   - Add typechecking, linting, unit tests, and browser tests.
+   - Current editor diagnostics are clean, but the project has no automated quality gate.
+
+## Recommended Implementation Order
+
+1. Establish the database schema, seed data, storage policies, and RLS.
+2. Create shared data-access hooks and replace static resource/course/program reads.
+3. Implement real admin and member authentication.
+4. Wire public browsing, search, bookmarks, downloads, and semester packs.
+5. Wire admin upload, resource management, courses, programs, settings, and analytics.
+6. Add loading, error, empty, accessibility, and responsive states.
+7. Add tests, deployment configuration, documentation, and security review.
+
+## Important Supporting Work
+
+- Persist theme and bookmarks instead of keeping them only in memory.
+- Remove the unused duplicate layout path between `PublicLayout.tsx` and `PublicRoot.tsx`.
+- Add accessible labels and keyboard behavior to icon-only controls.
+- Add loading and retry states for every asynchronous workflow.
+- Verify copyright/licensing permission for textbooks, past questions, videos, and uploaded materials.
+- Update `README.md` with migrations, environment variables, deployment, backups, and RLS setup.
