@@ -15,9 +15,13 @@ const PATH_TO_PAGE: Record<string, AdminPage> = {
 };
 
 export function AdminRoot() {
-  const { dark, toggleDark, adminAuthed, adminLogout } = useApp();
+  const { dark, toggleDark, adminAuthed, adminAuthLoading, adminLogout } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
+
+  if (adminAuthLoading) {
+    return <div className="min-h-screen bg-slate-950" />;
+  }
 
   // If not authed, redirect to admin login
   if (!adminAuthed) {

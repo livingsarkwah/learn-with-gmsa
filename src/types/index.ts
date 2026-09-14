@@ -7,10 +7,11 @@ export type AdminPage  = "dashboard" | "resources" | "upload" | "programs" | "co
 // ─── Domain ───────────────────────────────────────────────────────────────────
 
 export interface Resource {
-  id: number;
+  id: string | number;
   title: string;
   courseCode: string;
   courseTitle: string;
+  college?: string;
   program: string;
   collection: string;
   type: "PDF" | "Video" | "Document";
@@ -23,7 +24,12 @@ export interface Resource {
   featured?: boolean;
   uploadDate: string;
   status: "published" | "draft";
+  fileUrl?: string;
+  fileName?: string | null;
+  memberOnly?: boolean;
 }
+
+export type ResourceId = Resource["id"];
 
 export interface Course {
   id: number;

@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { Search, Plus, Edit, Trash2, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
-import { ADMIN_COURSES, PROGRAMS, LEVELS, SEMESTERS } from "../../constants/data";
+import { useEffect, useState } from "react";
+import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { PROGRAMS, LEVELS } from "../../constants/data";
+import { academicLabelsMatch, getAdminCourses, type AdminCourse } from "../../utils/getData";
 import { shortProg, MONO, SANS } from "../../utils";
 
 const PAGE_SIZE = 8;
@@ -10,11 +11,23 @@ export function CoursesPage() {
   const [program, setProgram] = useState("");
   const [level, setLevel]     = useState("");
   const [page, setPage]       = useState(1);
+  const [courses, setCourses] = useState<AdminCourse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const filtered = ADMIN_COURSES.filter(c => {
+  useEffect(() => {
+    let active = true;
+    getAdminCourses()
+      .then(data => { if (active) setCourses(data); })
+      .catch(() => { if (active) setError("Unable to load courses right now."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  const filtered = courses.filter(c => {
     const q = search.toLowerCase();
     if (search && !c.code.toLowerCase().includes(q) && !c.title.toLowerCase().includes(q)) return false;
-    if (program && c.program !== program) return false;
+    if (program && !academicLabelsMatch(c.program, program)) return false;
     if (level && c.level !== level) return false;
     return true;
   });
@@ -46,12 +59,14 @@ export function CoursesPage() {
           {LEVELS.map(l => <option key={l} value={l}>Level {l}</option>)}
         </select>
 
-        <button className="ml-auto flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 transition-colors">
-          <Plus className="w-3.5 h-3.5" />Add Course
-        </button>
+        <span className="ml-auto text-xs text-slate-400">Read-only until authentication is enabled</span>
       </div>
 
+      {loading && <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 text-sm text-slate-500">Loading courses…</div>}
+      {error && <div className="bg-white dark:bg-slate-800 border border-red-200 dark:border-red-800 rounded-2xl p-6 text-sm text-red-600">{error}</div>}
+
       {/* Table */}
+      {!loading && !error && (
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700">
           <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{filtered.length} course{filtered.length !== 1 ? "s" : ""}</span>
@@ -74,7 +89,7 @@ export function CoursesPage() {
                   <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">Level {c.level}</td>
                   <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{c.semester}</td>
                   <td className="px-4 py-3 text-xs font-bold text-primary" style={MONO}>{c.resourceCount}</td>
-                  <td className="px-4 py-3 text-xs font-bold text-primary" style={MONO}><button className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-slate-400 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button></td>
+                  <td className="px-4 py-3 text-xs text-slate-400">Read-only</td>
         
                 </tr>
               ))}
@@ -100,6 +115,7 @@ export function CoursesPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

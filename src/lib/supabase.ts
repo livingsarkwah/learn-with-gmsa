@@ -1,19 +1,29 @@
-import { createClient } from "@supabase/supabase-js";
-import type { Database } from "./database.types";
+import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+import type { Database } from './database.types'
 
-export const supabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+const env = (import.meta as ImportMeta & {
+  env: {
+    VITE_SUPABASE_URL?: string
+    VITE_SUPABASE_PUBLISHABLE_KEY?: string
+    VITE_SUPABASE_ANON_KEY?: string
+  }
+}).env
+
+const supabaseUrl = env.VITE_SUPABASE_URL ?? ''
+const supabasePublishableKey = env.VITE_SUPABASE_PUBLISHABLE_KEY ?? env.VITE_SUPABASE_ANON_KEY ?? ''
 
 export const supabase = createClient<Database>(
-  supabaseUrl || "https://placeholder.supabase.co",
-  supabaseAnonKey || "placeholder-anon-key",
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabasePublishableKey || 'placeholder-key',
   {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true,
     },
-  },
-);
+  }
+)
+
+export function hasSupabaseConfig() {
+  return Boolean(env.VITE_SUPABASE_URL && (env.VITE_SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_ANON_KEY))
+}

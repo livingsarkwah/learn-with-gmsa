@@ -1,14 +1,32 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { Bookmark, Library, Trash2 } from "lucide-react";
 import { ResourceCard } from "../../components/common/ResourceCard";
-import { ALL_RESOURCES } from "../../constants/data";
 import { useApp } from "../../lib/AppContext";
+import { getResources } from "../../utils/getData";
+import type { Resource } from "../../types";
 import { SANS } from "../../utils";
 
 export function BookmarksPage() {
   const { bookmarks, toggleBookmark } = useApp();
   const navigate = useNavigate();
-  const saved = ALL_RESOURCES.filter(r => bookmarks.includes(r.id));
+  const [saved, setSaved] = useState<Resource[]>([]);
+
+  useEffect(() => {
+    let active = true;
+
+    getResources()
+      .then(resources => {
+        if (!active) return;
+        setSaved(resources.filter(r => bookmarks.includes(r.id)));
+      })
+      .catch(() => {
+        if (!active) return;
+        setSaved([]);
+      });
+
+    return () => { active = false; };
+  }, [bookmarks]);
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 pb-24 md:pb-8" style={SANS}>
@@ -51,7 +69,7 @@ export function BookmarksPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {saved.map(r => (
-            <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources/${id}`)} />
+            <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources?resourceId=${encodeURIComponent(String(id))}`)} />
           ))}
         </div>
       )}

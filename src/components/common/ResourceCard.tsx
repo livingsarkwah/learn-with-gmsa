@@ -1,13 +1,15 @@
-import { Download, Eye, Clock, Bookmark, BookmarkCheck, FileText, Play } from "lucide-react";
-import type { Resource } from "../../types";
+import { useState } from "react";
+import { Download, Eye, Bookmark, BookmarkCheck, FileText, Play, Share2, ExternalLink, Copy, Mail, Send, MessageCircle } from "lucide-react";
+import { toast } from "sonner";
+import type { Resource, ResourceId } from "../../types";
 import { COLLECTION_ACCENT } from "../../constants/data";
 import { badgeClass, fmtNum, shortProg, MONO, SANS } from "../../utils";
 
 interface Props {
   resource: Resource;
-  bookmarks: number[];
-  onBookmark: (id: number) => void;
-  onOpen: (id: number) => void;
+  bookmarks: ResourceId[];
+  onBookmark: (id: ResourceId) => void;
+  onOpen: (id: ResourceId) => void;
   compact?: boolean;
 }
 
@@ -17,12 +19,51 @@ function TypeIcon({ type, cls = "w-4 h-4" }: { type: string; cls?: string }) {
 }
 
 export function ResourceCard({ resource: r, bookmarks, onBookmark, onOpen, compact = false }: Props) {
-  const saved  = bookmarks.includes(r.id);
+  const saved  = bookmarks.some(id => id === r.id);
   const accent = COLLECTION_ACCENT[r.collection];
+  const [shareOpen, setShareOpen] = useState(false);
+
+  function getShareDetails() {
+    const url = `${window.location.origin}/resources?resourceId=${encodeURIComponent(String(r.id))}`;
+    const text = `${r.title} (${r.courseCode})`;
+    return { url, text };
+  }
+
+  async function copyResourceLink() {
+    const { url } = getShareDetails();
+
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Resource link copied");
+      setShareOpen(false);
+    } catch {
+      toast.error("Unable to copy resource link");
+    }
+  }
+
+  function shareTo(channel: "whatsapp" | "email" | "telegram") {
+    const { url, text } = getShareDetails();
+    const encodedUrl = encodeURIComponent(url);
+    const encodedText = encodeURIComponent(`${text}\n${url}`);
+    const target = channel === "whatsapp"
+      ? `https://wa.me/?text=${encodedText}`
+      : channel === "telegram"
+        ? `https://t.me/share/url?url=${encodedUrl}&text=${encodeURIComponent(text)}`
+        : `mailto:?subject=${encodeURIComponent(`Learn with GMSA | Shared resource: ${r.title}`)}&body=${encodedText}`;
+
+    if (channel === "email") window.location.href = target;
+    else window.open(target, "_blank", "noopener,noreferrer");
+    setShareOpen(false);
+  }
+
+  function openResource() {
+    if (r.fileUrl) window.open(r.fileUrl, "_blank", "noopener,noreferrer");
+    else onOpen(r.id);
+  }
 
   return (
     <article
-      className="group bg-card border border-border rounded-2xl overflow-hidden flex flex-col transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
+      className="group relative bg-card border border-border rounded-2xl overflow-visible flex flex-col transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5"
       style={SANS}
     >
       {/* Collection-type accent strip */}
@@ -49,6 +90,32 @@ export function ResourceCard({ resource: r, bookmarks, onBookmark, onOpen, compa
           >
             {saved ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
           </button>
+          <div className="relative flex-shrink-0">
+          <button
+            onClick={e => { e.stopPropagation(); setShareOpen(open => !open); }}
+            aria-label="Share resource"
+            aria-expanded={shareOpen}
+            className="flex-shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+          >
+            <Share2 className="w-4 h-4" />
+          </button>
+          {shareOpen && (
+            <div className="absolute right-0 top-9 z-20 w-44 rounded-xl border border-border bg-card p-1.5 shadow-xl" onClick={e => e.stopPropagation()}>
+              <button onClick={() => void copyResourceLink()} className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-foreground hover:bg-muted">
+                <Copy className="w-3.5 h-3.5" />Copy link
+              </button>
+              <button onClick={() => shareTo("whatsapp")} className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-foreground hover:bg-muted">
+                <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />WhatsApp
+              </button>
+              <button onClick={() => shareTo("email")} className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-foreground hover:bg-muted">
+                <Mail className="w-3.5 h-3.5 text-sky-600" />Email
+              </button>
+              <button onClick={() => shareTo("telegram")} className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-foreground hover:bg-muted">
+                <Send className="w-3.5 h-3.5 text-blue-500" />Telegram
+              </button>
+            </div>
+          )}
+          </div>
         </div>
 
         {/* Title */}
@@ -57,6 +124,23 @@ export function ResourceCard({ resource: r, bookmarks, onBookmark, onOpen, compa
             {r.title}
           </h3>
         </button>
+
+        <div className="flex items-center gap-2">
+          {r.type === "PDF" && r.fileUrl && (
+            <button onClick={openResource} className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+              <FileText className="w-3.5 h-3.5" />Preview
+            </button>
+          )}
+          {r.type === "Video" && r.fileUrl ? (
+            <button onClick={openResource} className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+              <ExternalLink className="w-3.5 h-3.5" />Watch
+            </button>
+          ) : r.fileUrl && (
+            <a href={r.fileUrl} download={r.fileName} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+              <Download className="w-3.5 h-3.5" />Download
+            </a>
+          )}
+        </div>
 
         {/* Course title */}
         {!compact && <p className="text-xs text-muted-foreground truncate">{r.courseTitle}</p>}

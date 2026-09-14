@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Filter, LayoutGrid, FolderOpen, LayoutList, Bookmark, BookmarkCheck, Download, Eye } from "lucide-react";
 import { ResourceCard } from "../../components/common/ResourceCard";
 import { FilterSidebar } from "../../components/common/FilterSidebar";
-import { ALL_RESOURCES, COLLEGE_PROGRAMS } from "../../constants/data";
+import { COLLEGE_PROGRAMS } from "../../constants/data";
+import { academicLabelsMatch, getResourceById, getResources } from "../../utils/getData";
 import { useApp } from "../../lib/AppContext";
 import type { Filters } from "../../types";
 import { badgeClass, fmtNum, shortProg, MONO, SANS } from "../../utils";
@@ -14,12 +15,17 @@ export function LibraryPage() {
   const { bookmarks, toggleBookmark } = useApp();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const resourceId = searchParams.get("resourceId");
+  const [resources, setResources] = useState<import("../../types").Resource[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const sharedResourceRef = useRef<HTMLDivElement | null>(null);
 
   // Sync filters with URL search params
   const [filters, setFilters] = useState<Filters>({
     ...EMPTY,
     college:      searchParams.get("college") ?? "",
-    courseSearch: searchParams.get("course") ?? "",
+    courseSearch: searchParams.get("course") ?? searchParams.get("q") ?? "",
     program:      searchParams.get("program") ?? "",
     level:        searchParams.get("level") ?? "",
     semester:     searchParams.get("semester") ?? "",
@@ -29,10 +35,37 @@ export function LibraryPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [grid, setGrid] = useState(true);
 
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+
+    const request = resourceId ? getResourceById(resourceId).then(resource => resource ? [resource] : []) : getResources();
+    request.then(nextResources => {
+      if (!active) return;
+      setResources(nextResources);
+      setLoading(false);
+    }).catch(() => {
+      if (!active) return;
+      setResources([]);
+      setError("Unable to load resources right now.");
+      setLoading(false);
+    });
+
+    return () => { active = false; };
+  }, [resourceId]);
+
+  useEffect(() => {
+    if (!loading && resourceId && sharedResourceRef.current) {
+      sharedResourceRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [loading, resourceId]);
+
   // Update URL whenever filters change
   function handleSetFilters(f: Filters) {
     setFilters(f);
     const params: Record<string, string> = {};
+    if (resourceId) params.resourceId = resourceId;
     if (f.college)      params.college    = f.college;
     if (f.courseSearch) params.course     = f.courseSearch;
     if (f.program)      params.program    = f.program;
@@ -43,14 +76,16 @@ export function LibraryPage() {
     setSearchParams(params, { replace: true });
   }
 
-  const results = ALL_RESOURCES.filter(r => {
+  const results = resources.filter(r => {
     const cs = filters.courseSearch.toLowerCase();
     if (cs && !r.courseCode.toLowerCase().includes(cs) && !r.courseTitle.toLowerCase().includes(cs) && !r.title.toLowerCase().includes(cs)) return false;
     if (filters.college) {
       const cp = COLLEGE_PROGRAMS[filters.college] ?? [];
-      if (!cp.includes(r.program)) return false;
+      const matchesCollege = r.college && academicLabelsMatch(r.college, filters.college);
+      const matchesCollegeProgram = cp.some(program => academicLabelsMatch(program, r.program));
+      if (!matchesCollege && !matchesCollegeProgram) return false;
     }
-    if (filters.program && r.program !== filters.program) return false;
+    if (filters.program && !academicLabelsMatch(r.program, filters.program)) return false;
     if (filters.level && r.level !== filters.level) return false;
     if (filters.semester && r.semester !== filters.semester) return false;
     if (filters.collection && r.collection !== filters.collection) return false;
@@ -100,7 +135,11 @@ export function LibraryPage() {
         )}
 
         <div className="flex-1 min-w-0">
-          {results.length === 0 ? (
+          {loading ? (
+            <div className="py-24 text-center text-sm text-muted-foreground">Loading resources…</div>
+          ) : error ? (
+            <div className="py-24 text-center text-sm text-destructive">{error}</div>
+          ) : results.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 text-center">
               <FolderOpen className="w-14 h-14 text-muted-foreground/30 mb-4" />
               <p className="font-bold text-foreground mb-1">No matching resources</p>
@@ -110,7 +149,9 @@ export function LibraryPage() {
           ) : grid ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {results.map(r => (
-                <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources/${id}`)} />
+                <div key={r.id} ref={r.id === resourceId ? sharedResourceRef : undefined} className={r.id === resourceId ? "ring-2 ring-primary rounded-2xl" : undefined}>
+                  <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources?resourceId=${encodeURIComponent(String(id))}`)} />
+                </div>
               ))}
             </div>
           ) : (
@@ -118,9 +159,9 @@ export function LibraryPage() {
               {results.map(r => {
                 const saved = bookmarks.includes(r.id);
                 return (
-                  <div key={r.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:shadow-md transition-all">
+                  <div key={r.id} ref={r.id === resourceId ? sharedResourceRef : undefined} className={`bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:shadow-md transition-all ${r.id === resourceId ? "ring-2 ring-primary" : ""}`}>
                     <div className="flex-1 min-w-0">
-                      <button onClick={() => navigate(`/resources/${r.id}`)} className="font-bold text-sm text-foreground hover:text-primary transition-colors text-left truncate block max-w-full">{r.title}</button>
+                      <button onClick={() => navigate(`/resources?resourceId=${encodeURIComponent(String(r.id))}`)} className="font-bold text-sm text-foreground hover:text-primary transition-colors text-left truncate block max-w-full">{r.title}</button>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-xs font-bold text-muted-foreground" style={MONO}>{r.courseCode}</span>
                         <span className="text-muted-foreground text-xs">·</span>

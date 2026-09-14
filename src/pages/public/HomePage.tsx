@@ -1,19 +1,38 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { Award, FolderOpen, GraduationCap, BookOpen, Users, ArrowRight, LogIn, Search, PackageOpen } from "lucide-react";
 import { ResourceCard } from "../../components/common/ResourceCard";
 import { Footer } from "../../components/layout/Footer";
-import { ALL_RESOURCES, POPULAR_COURSES, QUICK_ACCESS } from "../../constants/data";
+import { POPULAR_COURSES, QUICK_ACCESS } from "../../constants/data";
 import { useApp } from "../../lib/AppContext";
+import { getResources } from "../../utils/getData";
+import type { Resource } from "../../types";
 import { MONO, SANS } from "../../utils";
 
 export function HomePage() {
   const { bookmarks, toggleBookmark } = useApp();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const [featured, setFeatured] = useState<Resource[]>([]);
+  const [recent, setRecent] = useState<Resource[]>([]);
 
-  const featured = ALL_RESOURCES.filter(r => r.featured).slice(0, 3);
-  const recent   = [...ALL_RESOURCES].sort((a, b) => b.uploadDate.localeCompare(a.uploadDate)).slice(0, 4);
+  useEffect(() => {
+    let active = true;
+
+    getResources()
+      .then(resources => {
+        if (!active) return;
+        setFeatured(resources.filter(r => r.featured).slice(0, 3));
+        setRecent([...resources].sort((a, b) => b.uploadDate.localeCompare(a.uploadDate)).slice(0, 4));
+      })
+      .catch(() => {
+        if (!active) return;
+        setFeatured([]);
+        setRecent([]);
+      });
+
+    return () => { active = false; };
+  }, []);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -58,9 +77,9 @@ export function HomePage() {
 
             <div className="flex flex-wrap gap-4 mt-8">
               {[
-                { icon: <FolderOpen className="w-3.5 h-3.5" />, value: "5,000+", label: "Resources" },
+                { icon: <FolderOpen className="w-3.5 h-3.5" />, value: "10,000+", label: "Resources" },
                 { icon: <GraduationCap className="w-3.5 h-3.5" />, value: "90+", label: "Programmes" },
-                { icon: <BookOpen className="w-3.5 h-3.5" />, value: "200+", label: "Courses" },
+                { icon: <BookOpen className="w-3.5 h-3.5" />, value: "4000+", label: "Courses" },
                 { icon: <Users className="w-3.5 h-3.5" />, value: "12k+", label: "Students" },
               ].map(({ icon, value, label }) => (
                 <div key={label} className="flex items-center gap-1.5 text-white/80 text-xs">
@@ -130,7 +149,7 @@ export function HomePage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {featured.map(r => (
-            <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources/${id}`)} />
+            <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources?resourceId=${encodeURIComponent(String(id))}`)} />
           ))}
         </div>
       </section>
@@ -171,7 +190,7 @@ export function HomePage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {recent.map(r => (
-            <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources/${id}`)} compact />
+            <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources?resourceId=${encodeURIComponent(String(id))}`)} compact />
           ))}
         </div>
       </section>

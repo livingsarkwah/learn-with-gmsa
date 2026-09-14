@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import {
   ArrowLeft, PackageOpen, ChevronRight, Download,
   FolderOpen, CheckCircle2, FileText, Video, FileQuestion,
 } from "lucide-react";
-import { COLLEGES, COLLEGE_PROGRAMS, LEVELS, SEMESTERS, ALL_RESOURCES, COLLECTION_ACCENT } from "../../constants/data";
+import { COLLEGES, COLLEGE_PROGRAMS, LEVELS, SEMESTERS, COLLECTION_ACCENT } from "../../constants/data";
+import { academicLabelsMatch, getResources } from "../../utils/getData";
 import { shortProg, badgeClass, MONO, SANS } from "../../utils";
+import type { Resource } from "../../types";
 
 // College colour accents for the step-1 cards
 const COLLEGE_PALETTE: Record<string, { bg: string; border: string; text: string; icon: string }> = {
@@ -33,6 +35,27 @@ export function SemesterPackPage() {
   const [program, setProgram] = useState("");
   const [level, setLevel]     = useState("");
   const [semester, setSemester] = useState("");
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    getResources()
+      .then(data => {
+        if (!active) return;
+        setResources(data);
+      })
+      .catch(() => {
+        if (!active) return;
+        setResources([]);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => { active = false; };
+  }, []);
 
   function selectCollege(c: string)  { setCollege(c); setProgram(""); setLevel(""); setSemester(""); setStep(1); }
   function selectProgram(p: string)  { setProgram(p); setLevel(""); setSemester(""); setStep(2); }
@@ -43,12 +66,14 @@ export function SemesterPackPage() {
     if (toStep < step) setStep(toStep);
   }
 
-  const matches = ALL_RESOURCES.filter(r => {
+  const matches = resources.filter(r => {
     if (college) {
       const cp = COLLEGE_PROGRAMS[college] ?? [];
-      if (!cp.includes(r.program)) return false;
+      const matchesCollege = r.college && academicLabelsMatch(r.college, college);
+      const matchesCollegeProgram = cp.some(program => academicLabelsMatch(program, r.program));
+      if (!matchesCollege && !matchesCollegeProgram) return false;
     }
-    if (program  && r.program   !== program)  return false;
+    if (program  && !academicLabelsMatch(r.program, program))  return false;
     if (level    && r.level     !== level)    return false;
     if (semester && r.semester  !== semester) return false;
     return true;
@@ -170,8 +195,14 @@ export function SemesterPackPage() {
 
       {/* ── Step panels ──────────────────────────────── */}
 
+      {loading && (
+        <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">
+          Loading available resources…
+        </div>
+      )}
+
       {/* Step 0 — Choose college */}
-      {step === 0 && (
+      {!loading && step === 0 && (
         <div>
           <h2 className="text-base font-bold text-foreground mb-4">Which college are you in?</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -195,7 +226,7 @@ export function SemesterPackPage() {
       )}
 
       {/* Step 1 — Choose programme */}
-      {step === 1 && (
+      {!loading && step === 1 && (
         <div>
           <h2 className="text-base font-bold text-foreground mb-1">Choose your programme</h2>
           <p className="text-xs text-muted-foreground mb-4">{college}</p>
@@ -215,7 +246,7 @@ export function SemesterPackPage() {
       )}
 
       {/* Step 2 — Choose level */}
-      {step === 2 && (
+      {!loading && step === 2 && (
         <div>
           <h2 className="text-base font-bold text-foreground mb-1">What level are you?</h2>
           <p className="text-xs text-muted-foreground mb-4">{shortProg(program)}</p>
@@ -234,7 +265,7 @@ export function SemesterPackPage() {
       )}
 
       {/* Step 3 — Choose semester */}
-      {step === 3 && (
+      {!loading && step === 3 && (
         <div>
           <h2 className="text-base font-bold text-foreground mb-1">Which semester?</h2>
           <p className="text-xs text-muted-foreground mb-4">{shortProg(program)} · Level {level}</p>
@@ -254,7 +285,7 @@ export function SemesterPackPage() {
       )}
 
       {/* Step 4 — Results */}
-      {step === 4 && (
+      {!loading && step === 4 && (
         <div>
           {/* Summary + action row */}
           <div className="flex items-start sm:items-center justify-between gap-4 mb-6 flex-col sm:flex-row">

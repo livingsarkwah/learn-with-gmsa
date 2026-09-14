@@ -2,41 +2,40 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Shield, Lock, AlertCircle, Eye, EyeOff, BookMarked } from "lucide-react";
 import { useApp } from "../../lib/AppContext";
-import { MONO, SANS } from "../../utils";
+import { SANS } from "../../utils";
 
 export function AdminLoginPage() {
   const { adminLogin } = useApp();
   const navigate = useNavigate();
+  const [email, setEmail]       = useState("");
   const [password, setPassword]   = useState("");
   const [showPw, setShowPw]       = useState(false);
   const [error, setError]         = useState("");
   const [loading, setLoading]     = useState(false);
   const [attempts, setAttempts]   = useState(0);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!password.trim()) { setError("Please enter the admin password."); return; }
+    if (!email.trim() || !password.trim()) { setError("Enter your admin email and password."); return; }
 
     setLoading(true);
     setError("");
 
-    // Simulate a brief network delay for realism
-    setTimeout(() => {
-      const ok = adminLogin(password);
-      setLoading(false);
-      if (ok) {
-        navigate("/admin/dashboard", { replace: true });
-      } else {
-        const next = attempts + 1;
-        setAttempts(next);
-        setPassword("");
-        if (next >= 3) {
-          setError("Too many failed attempts. Please contact your system administrator.");
-        } else {
-          setError(`Incorrect password. ${3 - next} attempt${3 - next !== 1 ? "s" : ""} remaining.`);
-        }
-      }
-    }, 800);
+    const ok = await adminLogin(email.trim(), password);
+    setLoading(false);
+    if (ok) {
+      navigate("/admin/dashboard", { replace: true });
+      return;
+    }
+
+    const next = attempts + 1;
+    setAttempts(next);
+    setPassword("");
+    if (next >= 3) {
+      setError("Too many failed attempts. Please contact your system administrator.");
+    } else {
+      setError(`Invalid administrator credentials. ${3 - next} attempt${3 - next !== 1 ? "s" : ""} remaining.`);
+    }
   }
 
   const locked = attempts >= 3;
@@ -74,7 +73,7 @@ export function AdminLoginPage() {
 
           <div className="p-6 sm:p-8">
             <h2 className="text-lg font-black text-white mb-1">Administrator Sign In</h2>
-            <p className="text-sm text-slate-400 mb-6">Enter your admin password to access the dashboard.</p>
+            <p className="text-sm text-slate-400 mb-6">Sign in with your authorized administrator account.</p>
 
             {locked ? (
               <div className="bg-red-950/60 border border-red-800/60 rounded-2xl p-4 text-center space-y-2">
@@ -85,6 +84,18 @@ export function AdminLoginPage() {
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-1.5">Admin Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="admin@example.com"
+                    disabled={loading}
+                    autoComplete="username"
+                    className="w-full px-3.5 py-3 text-sm bg-slate-800 rounded-xl border border-slate-700 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary disabled:opacity-50 transition-all"
+                  />
+                </div>
+                <div>
                   <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-1.5">Admin Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -94,6 +105,7 @@ export function AdminLoginPage() {
                       onChange={e => setPassword(e.target.value)}
                       placeholder="Enter admin password"
                       disabled={loading}
+                      autoComplete="current-password"
                       className="w-full pl-10 pr-10 py-3 text-sm bg-slate-800 rounded-xl border border-slate-700 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary disabled:opacity-50 transition-all"
                     />
                     <button
@@ -115,7 +127,7 @@ export function AdminLoginPage() {
 
                 <button
                   type="submit"
-                  disabled={loading || !password.trim()}
+                  disabled={loading || !email.trim() || !password.trim()}
                   className="w-full py-3 font-black text-sm rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                   style={{ background: "linear-gradient(135deg, #15803d, #16a34a)", color: "white" }}
                 >
@@ -127,19 +139,6 @@ export function AdminLoginPage() {
               </form>
             )}
 
-            {/* Demo hint */}
-            <div className="mt-5 pt-4 border-t border-slate-800">
-              <p className="text-[11px] text-slate-600 text-center">
-                Demo password:{" "}
-                <button
-                  onClick={() => setPassword("gmsa-admin-2024")}
-                  className="font-bold text-slate-500 hover:text-slate-400 transition-colors"
-                  style={MONO}
-                >
-                  gmsa-admin-2024
-                </button>
-              </p>
-            </div>
           </div>
         </div>
 

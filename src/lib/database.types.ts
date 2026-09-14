@@ -86,6 +86,7 @@ export interface Database {
           collection_id: string | null;
           file_name: string | null;
           created_at: string;
+          status: string;
         };
         Insert: {
           id?: string;
@@ -100,6 +101,7 @@ export interface Database {
           collection_id?: string | null;
           file_name?: string | null;
           created_at?: string;
+          status?: string;
         };
         Update: {
           id?: string;
@@ -114,6 +116,7 @@ export interface Database {
           collection_id?: string | null;
           file_name?: string | null;
           created_at?: string;
+          status?: string;
         };
       };
     };

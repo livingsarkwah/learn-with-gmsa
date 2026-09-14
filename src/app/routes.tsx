@@ -7,7 +7,6 @@ import { AdminRoot }  from "../layouts/AdminRoot";
 // Public pages
 import { HomePage }          from "../pages/public/HomePage";
 import { LibraryPage }       from "../pages/public/LibraryPage";
-import { DetailsPage }       from "../pages/public/DetailsPage";
 import { SearchPage }        from "../pages/public/SearchPage";
 import { BookmarksPage }     from "../pages/public/BookmarksPage";
 import { SemesterPackPage }  from "../pages/public/SemesterPackPage";
@@ -46,10 +45,10 @@ export const router = createBrowserRouter([
     Component: PublicRoot,
     children: [
       { index: true,               Component: HomePage },
-      { path: "library",           Component: LibraryPage },
-      { path: "resources/:id",     Component: DetailsPage },
+      { path: "library",           element: <Navigate to="/resources" replace /> },
+      { path: "resources",         Component: LibraryPage },
       { path: "search",            Component: SearchPage },
-      { path: "bookmarks",         Component: BookmarksPage },
+      { path: "bookmarks",       Component: BookmarksPage },
       { path: "semester-pack",     Component: SemesterPackPage },
       { path: "login",             Component: LoginPage },
       { path: "*",                 Component: NotFound },

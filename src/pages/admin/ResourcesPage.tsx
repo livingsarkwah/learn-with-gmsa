@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Search, ChevronDown, Upload, Trash2, Edit, Eye, RefreshCw,
   ChevronLeft, ChevronRight, MoreVertical, CheckSquare, Square,
   ArrowUpDown,
 } from "lucide-react";
-import { ALL_RESOURCES, PROGRAMS, LEVELS, SEMESTERS, COLLECTIONS, RESOURCE_TYPES } from "../../constants/data";
+import { PROGRAMS, LEVELS, SEMESTERS, COLLECTIONS, RESOURCE_TYPES } from "../../constants/data";
 import { badgeClass, statusBadge, fmtNum, MONO, SANS, shortProg } from "../../utils";
 import type { Resource } from "../../types";
+import { getResources } from "../../utils/getData";
 
 const PAGE_SIZE = 8;
 
@@ -30,23 +31,44 @@ function FilterSelect({ label, options, value, onChange }: {
   );
 }
 
-type ActionMenu = { id: number; open: boolean };
+type ActionMenu = { id: string; open: boolean };
 
 export function ResourcesPage() {
   const navigate = useNavigate();
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch]   = useState("");
   const [program, setProgram] = useState("");
   const [level, setLevel]     = useState("");
   const [semester, setSemester] = useState("");
   const [collection, setCollection] = useState("");
   const [type, setType]       = useState("");
-  const [selected, setSelected] = useState<number[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
   const [page, setPage]       = useState(1);
   const [sortField, setSortField] = useState<keyof Resource>("uploadDate");
   const [sortAsc, setSortAsc] = useState(false);
   const [actionMenu, setActionMenu] = useState<ActionMenu | null>(null);
 
-  const filtered = ALL_RESOURCES.filter(r => {
+  useEffect(() => {
+    let active = true;
+
+    getResources()
+      .then(data => {
+        if (!active) return;
+        setResources(data);
+      })
+      .catch(() => {
+        if (!active) return;
+        setResources([]);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => { active = false; };
+  }, []);
+
+  const filtered = resources.filter(r => {
     const q = search.toLowerCase();
     if (search && !r.title.toLowerCase().includes(q) && !r.courseCode.toLowerCase().includes(q)) return false;
     if (program && r.program !== program) return false;
@@ -64,7 +86,7 @@ export function ResourcesPage() {
 
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
   const pageRows   = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const allSelected = pageRows.length > 0 && pageRows.every(r => selected.includes(r.id));
+  const allSelected = pageRows.length > 0 && pageRows.every(r => selected.includes(String(r.id)));
 
   function toggleSort(field: keyof Resource) {
     if (sortField === field) setSortAsc(a => !a);
@@ -72,8 +94,8 @@ export function ResourcesPage() {
   }
 
   function toggleAll() {
-    if (allSelected) setSelected(s => s.filter(id => !pageRows.find(r => r.id === id)));
-    else setSelected(s => [...new Set([...s, ...pageRows.map(r => r.id)])]);
+    if (allSelected) setSelected(s => s.filter(id => !pageRows.find(r => String(r.id) === id)));
+    else setSelected(s => [...new Set([...s, ...pageRows.map(r => String(r.id))])]);
   }
 
   function clearFilters() {
@@ -129,7 +151,14 @@ export function ResourcesPage() {
         </div>
       </div>
 
+      {loading && (
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 text-sm text-slate-500 dark:text-slate-400">
+          Loading resources…
+        </div>
+      )}
+
       {/* Table */}
+      {!loading && (
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
           <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -167,12 +196,13 @@ export function ResourcesPage() {
             </thead>
             <tbody>
               {pageRows.map(r => {
-                const isSel = selected.includes(r.id);
-                const menuOpen = actionMenu?.id === r.id;
+                const resourceId = String(r.id);
+                const isSel = selected.includes(resourceId);
+                const menuOpen = actionMenu?.id === resourceId;
                 return (
                   <tr key={r.id} className={`border-b border-slate-50 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/20 transition-colors ${isSel ? "bg-primary/5" : ""}`}>
                     <td className="px-4 py-3">
-                      <button onClick={() => setSelected(s => isSel ? s.filter(x => x !== r.id) : [...s, r.id])}>
+                      <button onClick={() => setSelected(s => isSel ? s.filter(x => x !== resourceId) : [...s, resourceId])}>
                         {isSel ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4 text-slate-300 dark:text-slate-600" />}
                       </button>
                     </td>
@@ -196,7 +226,7 @@ export function ResourcesPage() {
                     </td>
                     <td className="px-4 py-3 relative">
                       <button
-                        onClick={() => setActionMenu(menuOpen ? null : { id: r.id, open: true })}
+                        onClick={() => setActionMenu(menuOpen ? null : { id: resourceId, open: true })}
                         className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600"
                       >
                         <MoreVertical className="w-4 h-4" />
@@ -241,6 +271,7 @@ export function ResourcesPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

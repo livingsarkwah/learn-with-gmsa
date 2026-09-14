@@ -1,11 +1,14 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { Download, Users, HardDrive, FolderOpen, TrendingUp, TrendingDown, Upload, Plus, UserPlus, BookOpen, ArrowUpRight } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from "recharts";
-import { ADMIN_STATS, MONTHLY_DOWNLOADS, CATEGORY_DATA, ALL_RESOURCES } from "../../constants/data";
+import { ADMIN_STATS, MONTHLY_DOWNLOADS, CATEGORY_DATA } from "../../constants/data";
 import { badgeClass, fmtNumFull, MONO, SANS, statusBadge } from "../../utils";
+import { getResources } from "../../utils/getData";
+import type { Resource } from "../../types";
 
 function StatCard({ label, value, icon: Icon, delta, positive, color }: {
   label: string; value: string; icon: React.ElementType; delta: string; positive: boolean; color: string;
@@ -29,13 +32,32 @@ function StatCard({ label, value, icon: Icon, delta, positive, color }: {
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const recent = [...ALL_RESOURCES].sort((a, b) => b.uploadDate.localeCompare(a.uploadDate)).slice(0, 6);
+  const [resources, setResources] = useState<Resource[]>([]);
+
+  useEffect(() => {
+    let active = true;
+
+    getResources()
+      .then(data => {
+        if (!active) return;
+        setResources(data);
+      })
+      .catch(() => {
+        if (!active) return;
+        setResources([]);
+      });
+
+    return () => { active = false; };
+  }, []);
+
+  const recent = [...resources].sort((a, b) => b.uploadDate.localeCompare(a.uploadDate)).slice(0, 6);
+  const totalResources = resources.length;
 
   return (
     <div className="space-y-6" style={SANS}>
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Resources"    value={fmtNumFull(ADMIN_STATS.totalResources)}    icon={FolderOpen} delta={ADMIN_STATS.resourcesDelta} positive color="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" />
+        <StatCard label="Total Resources"    value={fmtNumFull(totalResources)}                 icon={FolderOpen} delta={ADMIN_STATS.resourcesDelta} positive color="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" />
         <StatCard label="Total Downloads"    value={fmtNumFull(ADMIN_STATS.totalDownloads)}    icon={Download}   delta={ADMIN_STATS.downloadsDelta} positive color="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" />
         <StatCard label="Registered Members" value={fmtNumFull(ADMIN_STATS.registeredMembers)} icon={Users}      delta={ADMIN_STATS.membersDelta}   positive color="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400" />
         <StatCard label="Storage Used"       value={`${ADMIN_STATS.storageUsedGB} / ${ADMIN_STATS.storageMaxGB} GB`} icon={HardDrive} delta={ADMIN_STATS.storageDelta} positive color="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" />
