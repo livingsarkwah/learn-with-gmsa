@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Search, ChevronDown, Upload, Trash2, Edit, Eye, RefreshCw,
@@ -8,7 +8,7 @@ import {
 import { PROGRAMS, LEVELS, SEMESTERS, COLLECTIONS, RESOURCE_TYPES } from "../../constants/data";
 import { badgeClass, statusBadge, fmtNum, MONO, SANS, shortProg } from "../../utils";
 import type { Resource } from "../../types";
-import { getResources } from "../../utils/getData";
+import { deleteAdminResource, getAdminResources, replaceAdminResourceFile, updateAdminResource } from "../../utils/data/resources";
 
 const PAGE_SIZE = 8;
 
@@ -48,11 +48,19 @@ export function ResourcesPage() {
   const [sortField, setSortField] = useState<keyof Resource>("uploadDate");
   const [sortAsc, setSortAsc] = useState(false);
   const [actionMenu, setActionMenu] = useState<ActionMenu | null>(null);
+  const [mutationError, setMutationError] = useState("");
+  const [mutating, setMutating] = useState(false);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+  const [replaceId, setReplaceId] = useState("");
+
+  function loadResources() {
+    return getAdminResources().then(data => setResources(data));
+  }
 
   useEffect(() => {
     let active = true;
 
-    getResources()
+    getAdminResources()
       .then(data => {
         if (!active) return;
         setResources(data);
@@ -67,6 +75,55 @@ export function ResourcesPage() {
 
     return () => { active = false; };
   }, []);
+
+  async function deleteResources(ids: string[]) {
+    if (!ids.length || !window.confirm(`Delete ${ids.length} resource${ids.length === 1 ? "" : "s"}? This also removes uploaded files.`)) return;
+    setMutationError("");
+    setMutating(true);
+    try {
+      for (const id of ids) await deleteAdminResource(id);
+      setSelected([]);
+      await loadResources();
+    } catch (mutationError) {
+      setMutationError(mutationError instanceof Error ? mutationError.message : "Unable to delete selected resources.");
+    } finally {
+      setMutating(false);
+    }
+  }
+
+  async function togglePublished(resource: Resource) {
+    setMutationError("");
+    setMutating(true);
+    try {
+      await updateAdminResource(String(resource.id), { status: resource.status === "published" ? "draft" : "published" });
+      await loadResources();
+    } catch (mutationError) {
+      setMutationError(mutationError instanceof Error ? mutationError.message : "Unable to update resource status.");
+    } finally {
+      setMutating(false);
+    }
+  }
+
+  function startReplace(id: string) {
+    setReplaceId(id);
+    replaceInputRef.current?.click();
+  }
+
+  async function replaceFile(file: File | undefined) {
+    if (!file || !replaceId) return;
+    setMutationError("");
+    setMutating(true);
+    try {
+      if (file.size > 200 * 1024 * 1024) throw new Error("The selected file exceeds the 200 MB limit.");
+      await replaceAdminResourceFile(replaceId, file);
+      await loadResources();
+    } catch (mutationError) {
+      setMutationError(mutationError instanceof Error ? mutationError.message : "Unable to replace the resource file.");
+    } finally {
+      setMutating(false);
+      setReplaceId("");
+    }
+  }
 
   const filtered = resources.filter(r => {
     const q = search.toLowerCase();
@@ -113,6 +170,7 @@ export function ResourcesPage() {
     <div className="space-y-4" style={SANS}>
       {/* Toolbar */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4">
+        <input ref={replaceInputRef} type="file" className="hidden" accept=".pdf,.mp4,.docx,.pptx,.xlsx" onChange={event => void replaceFile(event.target.files?.[0])} />
         <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
           <div className="relative flex-1 min-w-[200px]">
@@ -137,7 +195,7 @@ export function ResourcesPage() {
               <RefreshCw className="w-3.5 h-3.5" />Reset
             </button>
             {selected.length > 0 && (
-              <button className="text-xs text-red-600 font-medium px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-1.5 border border-red-200 dark:border-red-800">
+              <button onClick={() => void deleteResources(selected)} disabled={mutating} className="text-xs text-red-600 font-medium px-3 py-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-1.5 border border-red-200 dark:border-red-800 disabled:opacity-50">
                 <Trash2 className="w-3.5 h-3.5" />Delete ({selected.length})
               </button>
             )}
@@ -150,6 +208,8 @@ export function ResourcesPage() {
           </div>
         </div>
       </div>
+
+      {mutationError && <p className="text-sm text-red-600 dark:text-red-400">{mutationError}</p>}
 
       {loading && (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 text-sm text-slate-500 dark:text-slate-400">
@@ -234,12 +294,12 @@ export function ResourcesPage() {
                       {menuOpen && (
                         <div className="absolute right-4 top-9 z-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-xl w-36 py-1" onClick={() => setActionMenu(null)}>
                           {[
-                            { label: "View", icon: Eye },
-                            { label: "Edit", icon: Edit },
-                            { label: "Replace File", icon: RefreshCw },
-                            { label: "Delete", icon: Trash2, danger: true },
-                          ].map(({ label, icon: Icon, danger }) => (
-                            <button key={label} className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-700 ${danger ? "text-red-600" : "text-slate-700 dark:text-slate-300"}`}>
+                            { label: "View", icon: Eye, action: () => r.fileUrl && window.open(r.fileUrl, "_blank", "noopener,noreferrer") },
+                            { label: r.status === "published" ? "Unpublish" : "Publish", icon: Edit, action: () => void togglePublished(r) },
+                            { label: "Replace File", icon: RefreshCw, action: () => startReplace(resourceId) },
+                            { label: "Delete", icon: Trash2, danger: true, action: () => void deleteResources([resourceId]) },
+                          ].map(({ label, icon: Icon, danger, action }) => (
+                            <button key={label} onClick={action} disabled={mutating} className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 ${danger ? "text-red-600" : "text-slate-700 dark:text-slate-300"}`}>
                               <Icon className="w-3.5 h-3.5" />{label}
                             </button>
                           ))}

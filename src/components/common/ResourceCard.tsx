@@ -24,7 +24,7 @@ export function ResourceCard({ resource: r, bookmarks, onBookmark, onOpen, compa
   const [shareOpen, setShareOpen] = useState(false);
 
   function getShareDetails() {
-    const url = `${window.location.origin}/resources?resourceId=${encodeURIComponent(String(r.id))}`;
+    const url = `${window.location.origin}/resources/${encodeURIComponent(String(r.id))}`;
     const text = `${r.title} (${r.courseCode})`;
     return { url, text };
   }

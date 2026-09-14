@@ -6,7 +6,8 @@ import {
   FolderOpen, CheckCircle2, FileText, Video, FileQuestion,
 } from "lucide-react";
 import { COLLEGES, COLLEGE_PROGRAMS, LEVELS, SEMESTERS, COLLECTION_ACCENT } from "../../constants/data";
-import { academicLabelsMatch, getResources } from "../../utils/getData";
+import { getResources } from "../../utils/data/resources";
+import { academicLabelsMatch } from "../../utils/data/shared";
 import { shortProg, badgeClass, MONO, SANS } from "../../utils";
 import type { Resource } from "../../types";
 

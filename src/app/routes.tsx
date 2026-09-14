@@ -47,6 +47,7 @@ export const router = createBrowserRouter([
       { index: true,               Component: HomePage },
       { path: "library",           element: <Navigate to="/resources" replace /> },
       { path: "resources",         Component: LibraryPage },
+      { path: "resources/:resourceId", Component: LibraryPage },
       { path: "search",            Component: SearchPage },
       { path: "bookmarks",       Component: BookmarksPage },
       { path: "semester-pack",     Component: SemesterPackPage },
@@ -76,4 +77,6 @@ export const router = createBrowserRouter([
       { path: "settings",  Component: SettingsPage },
     ],
   },
+
+  { path: "*", Component: NotFound },
 ]);

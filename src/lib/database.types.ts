@@ -68,9 +68,9 @@ export interface Database {
         Update: { id?: string; name?: string; member_only?: boolean; created_at?: string };
       };
       resource_collections: {
-        Row: { id: string; name: string; created_at: string; sort_order: string };
-        Insert: { id?: string; name: string; created_at?: string; sort_order?: string };
-        Update: { id?: string; name?: string; created_at?: string; sort_order?: string };
+        Row: { id: string; name: string; created_at: string; sort_order: number };
+        Insert: { id?: string; name: string; created_at?: string; sort_order?: number };
+        Update: { id?: string; name?: string; created_at?: string; sort_order?: number };
       };
       resources: {
         Row: {

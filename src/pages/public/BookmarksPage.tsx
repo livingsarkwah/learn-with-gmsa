@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { Bookmark, Library, Trash2 } from "lucide-react";
 import { ResourceCard } from "../../components/common/ResourceCard";
 import { useApp } from "../../lib/AppContext";
-import { getResources } from "../../utils/getData";
+import { getResources } from "../../utils/data/resources";
 import type { Resource } from "../../types";
 import { SANS } from "../../utils";
 
@@ -69,7 +69,7 @@ export function BookmarksPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {saved.map(r => (
-            <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources?resourceId=${encodeURIComponent(String(id))}`)} />
+            <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources/${encodeURIComponent(String(id))}`)} />
           ))}
         </div>
       )}

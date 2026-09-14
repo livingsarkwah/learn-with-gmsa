@@ -5,7 +5,8 @@ import { ResourceCard } from "../../components/common/ResourceCard";
 import { FilterSidebar } from "../../components/common/FilterSidebar";
 import { COLLEGE_PROGRAMS } from "../../constants/data";
 import { useApp } from "../../lib/AppContext";
-import { academicLabelsMatch, getResources } from "../../utils/getData";
+import { getResources } from "../../utils/data/resources";
+import { academicLabelsMatch } from "../../utils/data/shared";
 import type { Filters, Resource } from "../../types";
 import { badgeClass, MONO, SANS } from "../../utils";
 
@@ -137,7 +138,7 @@ export function SearchPage() {
             </div>
           ) : grid ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {results.map(r => <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources?resourceId=${encodeURIComponent(String(id))}`)} />)}
+              {results.map(r => <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources/${encodeURIComponent(String(id))}`)} />)}
             </div>
           ) : (
             <div className="space-y-2">
@@ -146,7 +147,7 @@ export function SearchPage() {
                 return (
                   <div key={r.id} className="bg-card border border-border rounded-xl p-4 flex items-start gap-3 hover:shadow-md transition-all">
                     <div className="flex-1 min-w-0">
-                      <button onClick={() => navigate(`/resources?resourceId=${encodeURIComponent(String(r.id))}`)} className="font-bold text-sm text-foreground hover:text-primary transition-colors text-left block truncate max-w-full">{r.title}</button>
+                      <button onClick={() => navigate(`/resources/${encodeURIComponent(String(r.id))}`)} className="font-bold text-sm text-foreground hover:text-primary transition-colors text-left block truncate max-w-full">{r.title}</button>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <span className="text-xs font-bold text-muted-foreground" style={MONO}>{r.courseCode}</span>
                         <span className="text-muted-foreground/50 text-xs">·</span>

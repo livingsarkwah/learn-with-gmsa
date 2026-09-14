@@ -7,7 +7,7 @@ import {
 } from "recharts";
 import { ADMIN_STATS, MONTHLY_DOWNLOADS, CATEGORY_DATA } from "../../constants/data";
 import { badgeClass, fmtNumFull, MONO, SANS, statusBadge } from "../../utils";
-import { getResources } from "../../utils/getData";
+import { getResources } from "../../utils/data/resources";
 import type { Resource } from "../../types";
 
 function StatCard({ label, value, icon: Icon, delta, positive, color }: {

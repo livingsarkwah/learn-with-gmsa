@@ -5,7 +5,7 @@ import { ResourceCard } from "../../components/common/ResourceCard";
 import { Footer } from "../../components/layout/Footer";
 import { POPULAR_COURSES, QUICK_ACCESS } from "../../constants/data";
 import { useApp } from "../../lib/AppContext";
-import { getResources } from "../../utils/getData";
+import { getResources } from "../../utils/data/resources";
 import type { Resource } from "../../types";
 import { MONO, SANS } from "../../utils";
 
@@ -149,7 +149,7 @@ export function HomePage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {featured.map(r => (
-            <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources?resourceId=${encodeURIComponent(String(id))}`)} />
+            <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources/${encodeURIComponent(String(id))}`)} />
           ))}
         </div>
       </section>
@@ -190,7 +190,7 @@ export function HomePage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {recent.map(r => (
-            <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources?resourceId=${encodeURIComponent(String(id))}`)} compact />
+            <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources/${encodeURIComponent(String(id))}`)} compact />
           ))}
         </div>
       </section>

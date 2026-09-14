@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { Filter, LayoutGrid, FolderOpen, LayoutList, Bookmark, BookmarkCheck, Download, Eye } from "lucide-react";
 import { ResourceCard } from "../../components/common/ResourceCard";
 import { FilterSidebar } from "../../components/common/FilterSidebar";
 import { COLLEGE_PROGRAMS } from "../../constants/data";
-import { academicLabelsMatch, getResourceById, getResources } from "../../utils/getData";
+import { getResourceById, getResources } from "../../utils/data/resources";
+import { academicLabelsMatch } from "../../utils/data/shared";
 import { useApp } from "../../lib/AppContext";
 import type { Filters } from "../../types";
 import { badgeClass, fmtNum, shortProg, MONO, SANS } from "../../utils";
@@ -14,8 +15,9 @@ const EMPTY: Filters = { college: "", program: "", level: "", semester: "", coll
 export function LibraryPage() {
   const { bookmarks, toggleBookmark } = useApp();
   const navigate = useNavigate();
+  const { resourceId: pathResourceId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const resourceId = searchParams.get("resourceId");
+  const resourceId = pathResourceId ?? searchParams.get("resourceId");
   const [resources, setResources] = useState<import("../../types").Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -65,7 +67,6 @@ export function LibraryPage() {
   function handleSetFilters(f: Filters) {
     setFilters(f);
     const params: Record<string, string> = {};
-    if (resourceId) params.resourceId = resourceId;
     if (f.college)      params.college    = f.college;
     if (f.courseSearch) params.course     = f.courseSearch;
     if (f.program)      params.program    = f.program;
@@ -150,7 +151,7 @@ export function LibraryPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {results.map(r => (
                 <div key={r.id} ref={r.id === resourceId ? sharedResourceRef : undefined} className={r.id === resourceId ? "ring-2 ring-primary rounded-2xl" : undefined}>
-                  <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources?resourceId=${encodeURIComponent(String(id))}`)} />
+                  <ResourceCard key={r.id} resource={r} bookmarks={bookmarks} onBookmark={toggleBookmark} onOpen={id => navigate(`/resources/${encodeURIComponent(String(id))}`)} />
                 </div>
               ))}
             </div>
@@ -161,7 +162,7 @@ export function LibraryPage() {
                 return (
                   <div key={r.id} ref={r.id === resourceId ? sharedResourceRef : undefined} className={`bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:shadow-md transition-all ${r.id === resourceId ? "ring-2 ring-primary" : ""}`}>
                     <div className="flex-1 min-w-0">
-                      <button onClick={() => navigate(`/resources?resourceId=${encodeURIComponent(String(r.id))}`)} className="font-bold text-sm text-foreground hover:text-primary transition-colors text-left truncate block max-w-full">{r.title}</button>
+                      <button onClick={() => navigate(`/resources/${encodeURIComponent(String(r.id))}`)} className="font-bold text-sm text-foreground hover:text-primary transition-colors text-left truncate block max-w-full">{r.title}</button>
                       <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className="text-xs font-bold text-muted-foreground" style={MONO}>{r.courseCode}</span>
                         <span className="text-muted-foreground text-xs">·</span>

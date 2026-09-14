@@ -1,5 +1,34 @@
 create extension if not exists "uuid-ossp";
 
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'resources',
+  'resources',
+  false,
+  209715200,
+  array['application/pdf', 'video/mp4', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']::text[]
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Admins can upload resource files" on storage.objects;
+create policy "Admins can upload resource files" on storage.objects
+for insert to authenticated
+with check (bucket_id = 'resources' and public.is_admin());
+
+drop policy if exists "Admins can update resource files" on storage.objects;
+create policy "Admins can update resource files" on storage.objects
+for update to authenticated
+using (bucket_id = 'resources' and public.is_admin())
+with check (bucket_id = 'resources' and public.is_admin());
+
+drop policy if exists "Admins can delete resource files" on storage.objects;
+create policy "Admins can delete resource files" on storage.objects
+for delete to authenticated
+using (bucket_id = 'resources' and public.is_admin());
+
 create table if not exists public.admins (
   id uuid primary key default uuid_generate_v4(),
   email text not null unique,
@@ -32,6 +61,22 @@ create table if not exists public.colleges (
   name text not null unique,
   created_at timestamptz not null default now()
 );
+
+alter table public.colleges enable row level security;
+
+drop policy if exists "Public can read colleges" on public.colleges;
+create policy "Public can read colleges" on public.colleges
+for select using (true);
+
+insert into public.colleges (name)
+values
+  ('College of Agriculture and Natural Resources'),
+  ('College of Humanities and Social Sciences'),
+  ('College of Engineering'),
+  ('College of Art and Built Environment'),
+  ('College of Science'),
+  ('College of Health Sciences')
+on conflict (name) do nothing;
 
 create table if not exists public.programs (
   id uuid primary key default uuid_generate_v4(),

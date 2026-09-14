@@ -1,6 +1,10 @@
-import { useState, useRef } from "react";
-import { Upload, X, FileText, CheckCircle, Image, ChevronDown } from "lucide-react";
-import { COLLEGE_PROGRAMS, COLLECTIONS, RESOURCE_TYPES, COLLEGES, ADMIN_COURSES } from "../../constants/data";
+import { useEffect, useState, useRef } from "react";
+import { Upload, X, FileText, CheckCircle, ChevronDown } from "lucide-react";
+import { COLLEGE_PROGRAMS, COLLECTIONS, RESOURCE_TYPES, COLLEGES } from "../../constants/data";
+import { createAdminResource } from "../../utils/data/resources";
+import { getCategories, getResourceCollections, type Category, type ResourceCollection } from "../../utils/data/catalog";
+import { getCoursesByProgramId, type AdminCourse } from "../../utils/data/courses";
+import { getAdminPrograms, type AdminProgram } from "../../utils/data/programmes";
 import { SANS } from "../../utils";
 
 function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -59,48 +63,104 @@ export function UploadPage() {
   const [program, setProgram]       = useState("");
   const [course, setCourse]         = useState("");
   const [collection, setCollection] = useState("");
+  const [category, setCategory] = useState("");
   const [resType, setResType]       = useState("");
   const [title, setTitle]           = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags]             = useState("");
   const [uploading, setUploading]   = useState(false);
-  const [progress, setProgress]     = useState(0);
   const [fileName, setFileName]     = useState("");
-  const [saved, setSaved]           = useState(false);
-  const [published, setPublished]   = useState(false);
+  const [message, setMessage]       = useState("");
+  const [error, setError]           = useState("");
+  const [file, setFile]             = useState<File | null>(null);
+  const [courses, setCourses]       = useState<AdminCourse[]>([]);
+  const [programs, setPrograms]     = useState<AdminProgram[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [collections, setCollections] = useState<ResourceCollection[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    void Promise.all([getAdminPrograms(), getCategories(), getResourceCollections()])
+      .then(([nextPrograms, nextCategories, nextCollections]) => {
+        setPrograms(nextPrograms);
+        setCategories(nextCategories);
+        setCollections(nextCollections);
+      })
+      .catch(() => setError("Unable to load upload options. Check the Supabase connection."));
+  }, []);
+
+  useEffect(() => {
+    const selectedProgram = programs.find(item => item.name === program && item.college === college);
+    setCourses([]);
+    setCourse("");
+    if (!selectedProgram) return;
+    void getCoursesByProgramId(String(selectedProgram.id))
+      .then(setCourses)
+      .catch(() => setError("Unable to load courses for this programme."));
+  }, [college, program, programs]);
+
+  function selectFile(nextFile: File) {
+    setError("");
+    if (nextFile.size > 200 * 1024 * 1024) {
+      setError("The selected file exceeds the 200 MB limit.");
+      return;
+    }
+    const allowed = ["application/pdf", "video/mp4", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
+    if (!allowed.includes(nextFile.type)) {
+      setError("Choose a PDF, MP4, DOCX, PPTX, or XLSX file.");
+      return;
+    }
+    setFile(nextFile);
+    setFileName(nextFile.name);
+  }
 
   function handleFileDrop(e: React.DragEvent) {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
-    if (file) simulateUpload(file.name);
+    if (file) selectFile(file);
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) simulateUpload(file.name);
+    if (file) selectFile(file);
   }
 
-  function simulateUpload(name: string) {
-    setFileName(name); setUploading(true); setProgress(0);
-    const interval = setInterval(() => {
-      setProgress(p => {
-        if (p >= 100) { clearInterval(interval); setUploading(false); return 100; }
-        return p + 12;
+  async function handleSave(status: "draft" | "published") {
+    setError("");
+    setMessage("");
+    const selectedCourse = courses.find(item => String(item.id) === course);
+    const selectedCollection = collections.find(item => item.name === collection);
+    const selectedCategory = categories.find(item => item.id === category);
+    const type = resType.toLowerCase() as "pdf" | "video" | "document";
+    if (!file || !college || !program || !selectedCourse || !selectedCollection || !selectedCategory || !title.trim() || !type) {
+      setError("Complete all required fields and select a valid file before saving.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await createAdminResource(file, {
+        title: title.trim(),
+        description: description.trim(),
+        categoryId: selectedCategory.id,
+        courseId: String(selectedCourse.id),
+        collectionId: selectedCollection.id,
+        resourceType: type,
+        tags: tags.split(",").map(tag => tag.trim()).filter(Boolean),
+        status,
       });
-    }, 200);
+      setMessage(status === "draft" ? "Draft saved successfully." : "Resource published successfully.");
+      setFile(null);
+      setFileName("");
+    } catch (mutationError) {
+      setError(mutationError instanceof Error ? mutationError.message : "Unable to save the resource.");
+    } finally {
+      setUploading(false);
+    }
   }
 
-  function handlePublish() {
-    setPublished(true);
-    setTimeout(() => setPublished(false), 3000);
-  }
-
-  const programOptions = college ? (COLLEGE_PROGRAMS[college] ?? []) : [];
-  const courseOptions = college
-    ? ADMIN_COURSES
-      .filter(c => programOptions.includes(c.program) && (!program || c.program === program))
-      .map(c => `${c.code} — ${c.title}`)
+  const programOptions = college
+    ? programs.filter(item => item.college === college).map(item => item.name)
     : [];
 
   return (
@@ -109,9 +169,22 @@ export function UploadPage() {
       <FormSection title="Academic Information">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SelectField label="College"             options={COLLEGES}    value={college}     onChange={value => { setCollege(value); setProgram(""); setCourse(""); }} required />
-          <SelectField label="Program"             options={programOptions} value={program}  onChange={value => { setProgram(value); setCourse(""); }} required disabled={!college} placeholder={college ? "Select Program…" : "Select College first"} />
-          <SelectField label="Course"              options={courseOptions} value={course}    onChange={setCourse}      required disabled={!program} placeholder={program ? "Select Course…" : "Select Program first"} />
-          <SelectField label="Resource Collection" options={COLLECTIONS} value={collection}  onChange={setCollection}  required />
+          <SelectField label="Program"             options={programOptions.length ? programOptions : (COLLEGE_PROGRAMS[college] ?? [])} value={program}  onChange={value => { setProgram(value); setCourse(""); }} required disabled={!college} placeholder={college ? "Select Program…" : "Select College first"} />
+          <div>
+            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1.5">Course<span className="text-red-500 ml-0.5">*</span></label>
+            <select value={course} onChange={e => setCourse(e.target.value)} disabled={!program} className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3.5 py-2.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 disabled:opacity-60">
+              <option value="">{program ? "Select Course…" : "Select Program first"}</option>
+              {courses.map(option => <option key={option.id} value={option.id}>{option.code} — {option.title}</option>)}
+            </select>
+          </div>
+          <SelectField label="Resource Collection" options={collections.length ? collections.map(item => item.name) : COLLECTIONS} value={collection} onChange={setCollection} required />
+          <div>
+            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-1.5">Category<span className="text-red-500 ml-0.5">*</span></label>
+            <select value={category} onChange={e => setCategory(e.target.value)} className="w-full appearance-none text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3.5 py-2.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
+              <option value="">Select Category…</option>
+              {categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          </div>
         </div>
       </FormSection>
 
@@ -140,21 +213,14 @@ export function UploadPage() {
               </div>
               <div>
                 <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{fileName}</p>
-                {uploading ? (
-                  <div className="mt-3 space-y-1.5">
-                    <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                      <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
-                    </div>
-                    <p className="text-xs text-slate-500">{progress}% uploaded…</p>
-                  </div>
-                ) : (
+                {!uploading && (
                   <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1 mt-1">
                     <CheckCircle className="w-3.5 h-3.5" />Upload complete
                   </p>
                 )}
               </div>
               <button
-                onClick={e => { e.stopPropagation(); setFileName(""); setProgress(0); }}
+                onClick={e => { e.stopPropagation(); setFile(null); setFileName(""); }}
                 className="text-xs text-slate-400 hover:text-red-500 flex items-center gap-1 mx-auto"
               >
                 <X className="w-3.5 h-3.5" />Remove file
@@ -176,19 +242,24 @@ export function UploadPage() {
 
       </FormSection>
 
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {message && <p className="text-sm text-emerald-600 dark:text-emerald-400">{message}</p>}
+
       {/* Actions */}
       <div className="flex items-center gap-3 flex-wrap">
         <button
-          onClick={() => setSaved(true)}
+          onClick={() => void handleSave("draft")}
+          disabled={uploading}
           className="flex items-center gap-2 px-5 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl text-sm font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
         >
-          {saved ? <><CheckCircle className="w-4 h-4 text-emerald-500" />Saved as Draft</> : "Save Draft"}
+          {uploading ? "Saving…" : "Save Draft"}
         </button>
         <button
-          onClick={handlePublish}
+          onClick={() => void handleSave("published")}
+          disabled={uploading}
           className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-black hover:bg-primary/90 transition-colors shadow-lg shadow-primary/25"
         >
-          {published ? <><CheckCircle className="w-4 h-4" />Published!</> : <><Upload className="w-4 h-4" />Publish Resource</>}
+          {uploading ? "Publishing…" : <><Upload className="w-4 h-4" />Publish Resource</>}
         </button>
         <button className="px-4 py-2.5 text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
           Cancel
