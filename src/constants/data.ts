@@ -1,4 +1,4 @@
-import type { Resource, Course, Program, Member, MonthlyDownloadPoint, CategoryPoint } from "../types";
+import type { Resource, Course, Program, MonthlyDownloadPoint, CategoryPoint } from "../types";
 
 // ─── Taxonomy ─────────────────────────────────────────────────────────────────
 

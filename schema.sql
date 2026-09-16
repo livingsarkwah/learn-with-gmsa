@@ -127,6 +127,10 @@ create table if not exists public.resources (
   status text not null default 'published' check (status in ('draft', 'published'))
 );
 
+alter table public.resources
+  alter column file_url type text using file_url::text,
+  alter column file_name type text using file_name::text;
+
 create table if not exists public.bookmarks (
   id uuid primary key default uuid_generate_v4(),
   resource_id uuid not null references public.resources(id) on delete cascade,

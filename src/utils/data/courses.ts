@@ -12,7 +12,32 @@ import {
 
 export type { AdminCourse, Course, CourseMutationInput } from './shared'
 
-function mapAdminCourse(course: { id: string | number; code: string; title: string; level: number | string; semester: number | string; program_id?: string; program?: { name: string } | null }): AdminCourse {
+type AdminCourseRow = {
+  id: string | number
+  code: string
+  title: string
+  level: number | string
+  semester: number | string
+  program_id?: string
+  program?: { name: string } | null
+}
+
+async function getResourceCountsByCourse(courseIds: string[]) {
+  if (!courseIds.length) return new Map<string, number>()
+
+  const { data, error } = await supabase
+    .from('resources')
+    .select('course_id')
+    .in('course_id', courseIds)
+  if (error) throw error
+
+  return (data as Array<{ course_id: string | null }>).reduce((counts, resource) => {
+    if (resource.course_id) counts.set(resource.course_id, (counts.get(resource.course_id) ?? 0) + 1)
+    return counts
+  }, new Map<string, number>())
+}
+
+function mapAdminCourse(course: AdminCourseRow, resourceCount = 0): AdminCourse {
   return {
     id: course.id,
     code: course.code,
@@ -21,7 +46,7 @@ function mapAdminCourse(course: { id: string | number; code: string; title: stri
     programId: course.program_id,
     level: String(course.level),
     semester: typeof course.semester === 'number' ? formatSemester(course.semester) : course.semester,
-    resourceCount: 0,
+    resourceCount,
   }
 }
 
@@ -40,7 +65,9 @@ export async function getAdminCourses(): Promise<AdminCourse[]> {
   if (!hasSupabaseConfig()) return [...ADMIN_COURSES]
   const { data, error } = await supabase.from('courses').select('id, code, title, level, semester, program_id, program:programs(name)').order('code')
   if (error) throw error
-  return (data as unknown as Array<Parameters<typeof mapAdminCourse>[0]>).map(mapAdminCourse)
+  const rows = data as unknown as AdminCourseRow[]
+  const resourceCounts = await getResourceCountsByCourse(rows.map(course => String(course.id)))
+  return rows.map(course => mapAdminCourse(course, resourceCounts.get(String(course.id)) ?? 0))
 }
 
 export async function getCoursesByProgramId(programId: string): Promise<AdminCourse[]> {
@@ -52,7 +79,9 @@ export async function getCoursesByProgramId(programId: string): Promise<AdminCou
   }
   const { data, error } = await supabase.from('courses').select('id, code, title, level, semester, program_id, program:programs(name)').eq('program_id', programId).order('code')
   if (error) throw error
-  return (data as unknown as Array<Parameters<typeof mapAdminCourse>[0]>).map(mapAdminCourse)
+  const rows = data as unknown as AdminCourseRow[]
+  const resourceCounts = await getResourceCountsByCourse(rows.map(course => String(course.id)))
+  return rows.map(course => mapAdminCourse(course, resourceCounts.get(String(course.id)) ?? 0))
 }
 
 export async function createCourse(input: CourseMutationInput) {

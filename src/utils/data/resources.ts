@@ -28,6 +28,11 @@ async function resolveResourceFileUrl(filePath: string) {
   return data.signedUrl
 }
 
+function storageFilePath(file: File) {
+  const extension = file.name.match(/\.[^./\\]+$/)?.[0] ?? ''
+  return `${crypto.randomUUID()}${extension.toLowerCase()}`
+}
+
 async function mapResource(row: import('./shared').Tables['resources']['Row'], course: Course | null, program: Program | null, college: College | null, collection: ResourceCollection | null, category: Category | null): Promise<Resource> {
   const isYouTube = /(?:youtube\.com|youtu\.be)/i.test(row.file_url)
   return {
@@ -99,7 +104,7 @@ export async function createAdminResource(file: File, input: ResourceMutationInp
   const categoryId = requireUuid(input.categoryId, 'category')
   const courseId = requireUuid(input.courseId, 'course')
   const collectionId = requireUuid(input.collectionId, 'collection')
-  const path = crypto.randomUUID()
+  const path = storageFilePath(file)
   const upload = await supabase.storage.from(RESOURCE_BUCKET).upload(path, file, { contentType: file.type, upsert: false })
   if (upload.error) throw upload.error
   const payload = { title: input.title, description: input.description || null, category_id: categoryId, course_id: courseId, collection_id: collectionId, resource_type: input.resourceType, file_url: path, file_name: file.name, tags: input.tags, status: input.status }
@@ -130,7 +135,7 @@ export async function replaceAdminResourceFile(id: string, file: File) {
   requireSupabaseConfig()
   const current = await supabase.from('resources').select('file_url').eq('id', id).single()
   if (current.error) throw current.error
-  const path = crypto.randomUUID()
+  const path = storageFilePath(file)
   const upload = await supabase.storage.from(RESOURCE_BUCKET).upload(path, file, { contentType: file.type, upsert: false })
   if (upload.error) throw upload.error
   const { error } = await supabase.from('resources').update({ file_url: path, file_name: file.name } as never).eq('id', id)

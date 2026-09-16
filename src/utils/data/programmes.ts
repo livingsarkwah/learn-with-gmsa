@@ -1,5 +1,6 @@
 import { ADMIN_PROGRAMS } from '../../constants/data'
 import { hasSupabaseConfig, supabase } from '../../lib/supabase'
+import { countCourses } from './courses'
 import {
   demoColleges,
   getTableRows,
@@ -34,13 +35,20 @@ export async function getAdminPrograms(): Promise<AdminProgram[]> {
   const { data, error } = await supabase.from('programs').select('*').order('name')
   if (error) throw error
 
-  return Promise.all((data as Array<{ id: string; name: string; college_id: string }>).map(async program => ({
-    id: program.id,
-    name: program.name,
-    college: (await getCollegeById(program.college_id))?.name ?? 'unassigned',
-    collegeId: program.college_id,
-    courseCount: 0,
-  })))
+  return Promise.all((data as Array<{ id: string; name: string; college_id: string }>).map(async program => {
+    const [college, courseCount] = await Promise.all([
+      getCollegeById(program.college_id),
+      countCourses({ programId: program.id }),
+    ])
+
+    return {
+      id: program.id,
+      name: program.name,
+      college: college?.name ?? 'unassigned',
+      collegeId: program.college_id,
+      courseCount,
+    }
+  }))
 }
 
 export async function getCollegeById(id: string): Promise<College | null> {
