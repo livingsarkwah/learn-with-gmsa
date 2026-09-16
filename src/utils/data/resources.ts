@@ -24,8 +24,7 @@ import {
 async function resolveResourceFileUrl(filePath: string) {
   if (!hasSupabaseConfig() || /^https?:\/\//i.test(filePath)) return filePath
   const { data, error } = await supabase.storage.from(RESOURCE_BUCKET).createSignedUrl(filePath, 3600)
-  if (error) throw error
-  return data.signedUrl
+  return error ? filePath : data.signedUrl
 }
 
 function storageFilePath(file: File) {
@@ -44,7 +43,7 @@ async function mapResource(row: import('./shared').Tables['resources']['Row'], c
     program: program?.name ?? '',
     collection: collection?.name ?? '',
     type: isYouTube ? 'Video' : row.resource_type.toLowerCase() === 'pdf' ? 'PDF' : 'Document',
-    downloads: row.download_count,
+    downloads: row.resource_type.toLowerCase() === 'video' ? 0 : row.download_count,
     views: 0,
     tags: row.tags ?? [],
     description: row.description ?? '',
@@ -99,18 +98,29 @@ export async function getResourceById(id: string): Promise<Resource | null> {
   return resource ?? null
 }
 
-export async function createAdminResource(file: File, input: ResourceMutationInput) {
+export async function incrementDownloadCount(id: string | number) {
+  if (!hasSupabaseConfig()) return
+  await supabase.rpc('increment_resource_download', { resource_id: String(id) } as never)
+}
+
+export async function createAdminResource(source: File | string, input: ResourceMutationInput) {
   requireSupabaseConfig()
   const categoryId = requireUuid(input.categoryId, 'category')
   const courseId = requireUuid(input.courseId, 'course')
   const collectionId = requireUuid(input.collectionId, 'collection')
-  const path = storageFilePath(file)
-  const upload = await supabase.storage.from(RESOURCE_BUCKET).upload(path, file, { contentType: file.type, upsert: false })
-  if (upload.error) throw upload.error
-  const payload = { title: input.title, description: input.description || null, category_id: categoryId, course_id: courseId, collection_id: collectionId, resource_type: input.resourceType, file_url: path, file_name: file.name, tags: input.tags, status: input.status }
+  const isExternalResource = typeof source === 'string'
+  const filePath = isExternalResource ? source : storageFilePath(source)
+  if (isExternalResource && !/^https?:\/\/\S+$/i.test(source)) {
+    throw new Error('Enter a valid HTTP or HTTPS video link.')
+  }
+  if (!isExternalResource) {
+    const upload = await supabase.storage.from(RESOURCE_BUCKET).upload(filePath, source, { contentType: source.type, upsert: false })
+    if (upload.error) throw upload.error
+  }
+  const payload = { title: input.title, description: input.description || null, category_id: categoryId, course_id: courseId, collection_id: collectionId, resource_type: input.resourceType, file_url: filePath, file_name: isExternalResource ? null : source.name, tags: input.tags, status: input.status }
   const { data, error } = await supabase.from('resources').insert(payload as never).select('id').single()
   if (error) {
-    await supabase.storage.from(RESOURCE_BUCKET).remove([path])
+    if (!isExternalResource) await supabase.storage.from(RESOURCE_BUCKET).remove([filePath])
     throw error
   }
   return (data as unknown as { id: string }).id
@@ -143,6 +153,17 @@ export async function replaceAdminResourceFile(id: string, file: File) {
     await supabase.storage.from(RESOURCE_BUCKET).remove([path])
     throw error
   }
+  const oldPath = storagePath((current.data as unknown as { file_url: string }).file_url)
+  if (oldPath) await supabase.storage.from(RESOURCE_BUCKET).remove([oldPath])
+}
+
+export async function replaceAdminResourceLink(id: string, url: string) {
+  requireSupabaseConfig()
+  if (!/^https?:\/\/\S+$/i.test(url)) throw new Error('Enter a valid HTTP or HTTPS video link.')
+  const current = await supabase.from('resources').select('file_url').eq('id', id).single()
+  if (current.error) throw current.error
+  const { error } = await supabase.from('resources').update({ file_url: url, file_name: null, resource_type: 'video' } as never).eq('id', id)
+  if (error) throw error
   const oldPath = storagePath((current.data as unknown as { file_url: string }).file_url)
   if (oldPath) await supabase.storage.from(RESOURCE_BUCKET).remove([oldPath])
 }

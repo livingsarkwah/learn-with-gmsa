@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Download, Eye, Bookmark, BookmarkCheck, FileText, Play, Share2, ExternalLink, Copy, Mail, Send, MessageCircle } from "lucide-react";
+import { Download, Bookmark, BookmarkCheck, FileText, Play, Share2, ExternalLink, Copy, Mail, Send, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import type { Resource, ResourceId } from "../../types";
 import { COLLECTION_ACCENT } from "../../constants/data";
 import { badgeClass, fmtNum, shortProg, MONO, SANS } from "../../utils";
+import { incrementDownloadCount } from "../../utils/data/resources";
 
 interface Props {
   resource: Resource;
@@ -59,6 +60,10 @@ export function ResourceCard({ resource: r, bookmarks, onBookmark, onOpen, compa
   function openResource() {
     if (r.fileUrl) window.open(r.fileUrl, "_blank", "noopener,noreferrer");
     else onOpen(r.id);
+  }
+
+  function downloadResource() {
+    if (r.type !== "Video") void incrementDownloadCount(r.id);
   }
 
   return (
@@ -136,7 +141,7 @@ export function ResourceCard({ resource: r, bookmarks, onBookmark, onOpen, compa
               <ExternalLink className="w-3.5 h-3.5" />Watch
             </button>
           ) : r.fileUrl && (
-            <a href={r.fileUrl} download={r.fileName} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+            <a href={r.fileUrl} download={r.fileName} target="_blank" rel="noreferrer" onClick={e => { e.stopPropagation(); downloadResource(); }} className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
               <Download className="w-3.5 h-3.5" />Download
             </a>
           )}
@@ -156,8 +161,7 @@ export function ResourceCard({ resource: r, bookmarks, onBookmark, onOpen, compa
 
         {/* Footer stats */}
         <div className="mt-auto pt-3 border-t border-border flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1"><Download className="w-3 h-3" />{fmtNum(r.downloads)}</span>
-          <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{fmtNum(r.views)}</span>
+          {r.type !== "Video" && <span className="flex items-center gap-1"><Download className="w-3 h-3" />{fmtNum(r.downloads)}</span>}
           <span className="ml-auto flex items-center gap-1 tabular-nums" style={MONO}>{r.uploadDate.slice(0, 7)}</span>
         </div>
       </div>

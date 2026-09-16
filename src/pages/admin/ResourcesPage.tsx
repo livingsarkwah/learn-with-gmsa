@@ -8,7 +8,7 @@ import {
 import { PROGRAMS, LEVELS, SEMESTERS, COLLECTIONS, RESOURCE_TYPES } from "../../constants/data";
 import { badgeClass, statusBadge, fmtNum, MONO, SANS, shortProg } from "../../utils";
 import type { Resource } from "../../types";
-import { deleteAdminResource, getAdminResources, replaceAdminResourceFile, updateAdminResource } from "../../utils/data/resources";
+import { deleteAdminResource, getAdminResources, replaceAdminResourceFile, replaceAdminResourceLink, updateAdminResource } from "../../utils/data/resources";
 
 const PAGE_SIZE = 8;
 
@@ -49,9 +49,12 @@ export function ResourcesPage() {
   const [sortAsc, setSortAsc] = useState(false);
   const [actionMenu, setActionMenu] = useState<ActionMenu | null>(null);
   const [mutationError, setMutationError] = useState("");
+  const [mutationMessage, setMutationMessage] = useState("");
   const [mutating, setMutating] = useState(false);
   const replaceInputRef = useRef<HTMLInputElement>(null);
   const [replaceId, setReplaceId] = useState("");
+  const [editingResource, setEditingResource] = useState<Resource | null>(null);
+  const [editUrl, setEditUrl] = useState("");
 
   function loadResources() {
     return getAdminResources().then(data => setResources(data));
@@ -79,6 +82,7 @@ export function ResourcesPage() {
   async function deleteResources(ids: string[]) {
     if (!ids.length || !window.confirm(`Delete ${ids.length} resource${ids.length === 1 ? "" : "s"}? This also removes uploaded files.`)) return;
     setMutationError("");
+    setMutationMessage("");
     setMutating(true);
     try {
       for (const id of ids) await deleteAdminResource(id);
@@ -93,6 +97,7 @@ export function ResourcesPage() {
 
   async function togglePublished(resource: Resource) {
     setMutationError("");
+    setMutationMessage("");
     setMutating(true);
     try {
       await updateAdminResource(String(resource.id), { status: resource.status === "published" ? "draft" : "published" });
@@ -109,14 +114,43 @@ export function ResourcesPage() {
     replaceInputRef.current?.click();
   }
 
+  function startEdit(resource: Resource) {
+    setEditingResource(resource);
+    setEditUrl(resource.fileUrl ?? "");
+    setMutationError("");
+    setMutationMessage("");
+  }
+
+  async function saveEdit() {
+    if (!editingResource) return;
+    setMutationError("");
+    setMutationMessage("");
+    setMutating(true);
+    try {
+      if (editingResource.type === "Video") {
+        await replaceAdminResourceLink(String(editingResource.id), editUrl.trim());
+      } else {
+        await updateAdminResource(String(editingResource.id), { title: editUrl.trim() });
+      }
+      setEditingResource(null);
+      await loadResources();
+    } catch (mutationError) {
+      setMutationError(mutationError instanceof Error ? mutationError.message : "Unable to update the resource.");
+    } finally {
+      setMutating(false);
+    }
+  }
+
   async function replaceFile(file: File | undefined) {
     if (!file || !replaceId) return;
     setMutationError("");
+    setMutationMessage("");
     setMutating(true);
     try {
       if (file.size > 200 * 1024 * 1024) throw new Error("The selected file exceeds the 200 MB limit.");
       await replaceAdminResourceFile(replaceId, file);
       await loadResources();
+      setMutationMessage("Resource file replaced successfully.");
     } catch (mutationError) {
       setMutationError(mutationError instanceof Error ? mutationError.message : "Unable to replace the resource file.");
     } finally {
@@ -210,6 +244,7 @@ export function ResourcesPage() {
       </div>
 
       {mutationError && <p className="text-sm text-red-600 dark:text-red-400">{mutationError}</p>}
+      {mutationMessage && <p className="text-sm text-emerald-600 dark:text-emerald-400">{mutationMessage}</p>}
 
       {loading && (
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 text-sm text-slate-500 dark:text-slate-400">
@@ -278,7 +313,7 @@ export function ResourcesPage() {
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400">{r.type}</td>
                     <td className="px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap" style={MONO}>
-                      {fmtNum(r.downloads)}
+                      {r.type === "Video" ? "-" : fmtNum(r.downloads)}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap" style={MONO}>{r.uploadDate}</td>
                     <td className="px-4 py-3">
@@ -295,8 +330,9 @@ export function ResourcesPage() {
                         <div className="absolute right-4 top-9 z-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl shadow-xl w-36 py-1" onClick={() => setActionMenu(null)}>
                           {[
                             { label: "View", icon: Eye, action: () => r.fileUrl && window.open(r.fileUrl, "_blank", "noopener,noreferrer") },
+                            { label: "Edit", icon: Edit, action: () => startEdit(r) },
                             { label: r.status === "published" ? "Unpublish" : "Publish", icon: Edit, action: () => void togglePublished(r) },
-                            { label: "Replace File", icon: RefreshCw, action: () => startReplace(resourceId) },
+                            { label: r.type === "Video" ? "Replace Video Link" : "Replace File", icon: RefreshCw, action: () => r.type === "Video" ? startEdit(r) : startReplace(resourceId) },
                             { label: "Delete", icon: Trash2, danger: true, action: () => void deleteResources([resourceId]) },
                           ].map(({ label, icon: Icon, danger, action }) => (
                             <button key={label} onClick={action} disabled={mutating} className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition-colors hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 ${danger ? "text-red-600" : "text-slate-700 dark:text-slate-300"}`}>
@@ -331,6 +367,29 @@ export function ResourcesPage() {
           </div>
         </div>
       </div>
+      )}
+
+      {editingResource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-bold text-slate-900 dark:text-white">Edit Resource</h2>
+              <button onClick={() => setEditingResource(null)} className="text-slate-400 hover:text-slate-700">Close</button>
+            </div>
+            {editingResource.type === "Video" ? (
+              <div className="space-y-3">
+                <label className="block text-xs font-bold uppercase tracking-widest text-slate-500">Video URL</label>
+                <input value={editUrl} onChange={event => setEditUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=…" className="w-full rounded-xl border px-3 py-2.5 text-sm bg-transparent" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-slate-500">Upload a replacement file for this {editingResource.type} resource.</p>
+                <button onClick={() => { setEditingResource(null); startReplace(String(editingResource.id)); }} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white">Choose replacement file</button>
+              </div>
+            )}
+            {editingResource.type === "Video" && <button onClick={() => void saveEdit()} disabled={mutating} className="w-full mt-5 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{mutating ? "Saving…" : "Save video link"}</button>}
+          </div>
+        </div>
       )}
     </div>
   );

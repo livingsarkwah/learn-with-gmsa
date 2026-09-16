@@ -29,6 +29,11 @@ create policy "Admins can delete resource files" on storage.objects
 for delete to authenticated
 using (bucket_id = 'resources' and public.is_admin());
 
+drop policy if exists "Public can read resource files" on storage.objects;
+create policy "Public can read resource files" on storage.objects
+for select
+using (bucket_id = 'resources');
+
 create table if not exists public.admins (
   id uuid primary key default uuid_generate_v4(),
   email text not null unique,
@@ -126,6 +131,20 @@ create table if not exists public.resources (
   created_at timestamptz not null default now(),
   status text not null default 'published' check (status in ('draft', 'published'))
 );
+
+create or replace function public.increment_resource_download(resource_id uuid)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.resources
+  set download_count = download_count + 1
+  where id = resource_id and status = 'published' and resource_type <> 'video';
+$$;
+
+revoke all on function public.increment_resource_download(uuid) from public;
+grant execute on function public.increment_resource_download(uuid) to anon, authenticated;
 
 alter table public.resources
   alter column file_url type text using file_url::text,

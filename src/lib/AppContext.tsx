@@ -14,19 +14,39 @@ interface AppContextValue {
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
+const BOOKMARKS_STORAGE_KEY = "learn-with-gmsa-bookmarks";
+
+function readStoredBookmarks(): ResourceId[] {
+  try {
+    const stored = window.localStorage.getItem(BOOKMARKS_STORAGE_KEY);
+    if (!stored) return [];
+    const parsed: unknown = JSON.parse(stored);
+    return Array.isArray(parsed) && parsed.every(item => typeof item === "string" || typeof item === "number")
+      ? parsed as ResourceId[]
+      : [];
+  } catch {
+    return [];
+  }
+}
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [dark, setDark] = useState(false);
-  const [bookmarks, setBookmarks] = useState<ResourceId[]>([]);
+  const [bookmarks, setBookmarks] = useState<ResourceId[]>(readStoredBookmarks);
   const [adminAuthed, setAdminAuthed] = useState(false);
   const [adminAuthLoading, setAdminAuthLoading] = useState(true);
 
   const toggleDark = useCallback(() => setDark(d => !d), []);
 
   const toggleBookmark = useCallback((id: ResourceId) => {
-    setBookmarks(prev =>
-      prev.includes(id) ? prev.filter(b => b !== id) : [...prev, id]
-    );
+    setBookmarks(prev => {
+      const next = prev.includes(id) ? prev.filter(b => b !== id) : [...prev, id];
+      try {
+        window.localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Bookmarks still work for the current session if storage is unavailable.
+      }
+      return next;
+    });
   }, []);
 
   const isAdmin = useCallback(async (user: { email?: string | null } | null) => {

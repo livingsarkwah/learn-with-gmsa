@@ -68,6 +68,7 @@ export function UploadPage() {
   const [title, setTitle]           = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags]             = useState("");
+  const [videoUrl, setVideoUrl]     = useState("");
   const [uploading, setUploading]   = useState(false);
   const [fileName, setFileName]     = useState("");
   const [message, setMessage]       = useState("");
@@ -125,6 +126,16 @@ export function UploadPage() {
     if (file) selectFile(file);
   }
 
+  function handleResourceTypeChange(value: string) {
+    setResType(value);
+    if (value.toLowerCase() === "video") {
+      setFile(null);
+      setFileName("");
+    } else {
+      setVideoUrl("");
+    }
+  }
+
   async function handleSave(status: "draft" | "published") {
     setError("");
     setMessage("");
@@ -132,14 +143,16 @@ export function UploadPage() {
     const selectedCollection = collections.find(item => item.name === collection);
     const selectedCategory = categories.find(item => item.id === category);
     const type = resType.toLowerCase() as "pdf" | "video" | "document";
-    if (!file || !college || !program || !selectedCourse || !selectedCollection || !selectedCategory || !title.trim() || !type) {
-      setError("Complete all required fields and select a valid file before saving.");
+    const isVideo = type === "video";
+    const videoLink = videoUrl.trim();
+    if ((!isVideo && !file) || (isVideo && !/^https?:\/\/\S+$/i.test(videoLink)) || !college || !program || !selectedCourse || !selectedCollection || !selectedCategory || !title.trim() || !type) {
+      setError(isVideo ? "Complete all required fields and enter a valid video link before saving." : "Complete all required fields and select a valid file before saving.");
       return;
     }
 
     setUploading(true);
     try {
-      await createAdminResource(file, {
+      await createAdminResource(isVideo ? videoLink : file!, {
         title: title.trim(),
         description: description.trim(),
         categoryId: selectedCategory.id,
@@ -152,6 +165,7 @@ export function UploadPage() {
       setMessage(status === "draft" ? "Draft saved successfully." : "Resource published successfully.");
       setFile(null);
       setFileName("");
+      setVideoUrl("");
     } catch (mutationError) {
       setError(mutationError instanceof Error ? mutationError.message : "Unable to save the resource.");
     } finally {
@@ -193,11 +207,15 @@ export function UploadPage() {
         <TextField label="Resource Title"  placeholder="e.g. Fluid Mechanics — Complete Lecture Notes" value={title}       onChange={setTitle}       required />
         <TextField label="Description"     placeholder="Describe the content and scope of this resource…" value={description} onChange={setDescription} multiline />
         <TextField label="Tags"            placeholder="comma-separated tags: fluid, mechanics, ME 305, bernoulli" value={tags} onChange={setTags} />
-        <SelectField label="Resource Type" options={RESOURCE_TYPES} value={resType} onChange={setResType} required />
+        <SelectField label="Resource Type" options={RESOURCE_TYPES} value={resType} onChange={handleResourceTypeChange} required />
       </FormSection>
 
       {/* Upload section */}
-      <FormSection title="File Upload">
+      <FormSection title={resType.toLowerCase() === "video" ? "Video Link" : "File Upload"}>
+        {resType.toLowerCase() === "video" ? (
+          <TextField label="Video URL" placeholder="https://www.youtube.com/watch?v=…" value={videoUrl} onChange={setVideoUrl} required />
+        ) : (
+        <>
         {/* Main upload area */}
         <div
           className={`relative border-2 border-dashed rounded-2xl p-8 text-center transition-colors cursor-pointer ${fileName ? "border-primary/40 bg-primary/5" : "border-slate-200 dark:border-slate-600 hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-slate-900"}`}
@@ -239,7 +257,8 @@ export function UploadPage() {
             </>
           )}
         </div>
-
+        </>
+        )}
       </FormSection>
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}

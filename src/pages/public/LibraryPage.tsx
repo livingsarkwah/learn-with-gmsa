@@ -171,8 +171,7 @@ export function LibraryPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className="text-xs text-muted-foreground hidden sm:flex items-center gap-1" style={MONO}><Download className="w-3 h-3" />{fmtNum(r.downloads)}</span>
-                      <span className="text-xs text-muted-foreground hidden sm:flex items-center gap-1" style={MONO}><Eye className="w-3 h-3" />{fmtNum(r.views)}</span>
+                      {r.type !== "Video" && <span className="text-xs text-muted-foreground hidden sm:flex items-center gap-1" style={MONO}><Download className="w-3 h-3" />{fmtNum(r.downloads)}</span>}
                       <button onClick={() => toggleBookmark(r.id)} className={`p-1.5 rounded-lg transition-colors ${saved ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/10"}`}>
                         {saved ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
                       </button>
