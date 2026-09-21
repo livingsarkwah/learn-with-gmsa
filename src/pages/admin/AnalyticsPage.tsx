@@ -2,11 +2,10 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, Legend,
 } from "recharts";
-import {
-  MONTHLY_DOWNLOADS, CATEGORY_DATA, TOP_COURSES_DATA, ADMIN_STATS,
-} from "../../constants/data";
-import { fmtNumFull, MONO, SANS } from "../../utils";
-import { Download, Users, FolderOpen, TrendingUp } from "lucide-react";
+import { ADMIN_STATS } from "../../constants/data";
+import { MONO, SANS } from "../../utils";
+import { Download, FolderOpen } from "lucide-react";
+import { useRealtimeAnalytics } from "../../hooks/useRealtimeAnalytics";
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -33,26 +32,21 @@ function StatBadge({ label, value, icon: Icon, color, sub }: {
 }
 
 export function AnalyticsPage() {
-  const todayDownloads  = Math.round(MONTHLY_DOWNLOADS[MONTHLY_DOWNLOADS.length - 1].downloads / 30);
-  const monthDownloads  = MONTHLY_DOWNLOADS[MONTHLY_DOWNLOADS.length - 1].downloads;
-  const newMembers      = 147;
-  const newResources    = MONTHLY_DOWNLOADS[MONTHLY_DOWNLOADS.length - 1].uploads;
+  const { totalDownloads, monthlyActivity, newResources, topCourses, topCategories } = useRealtimeAnalytics();
 
   return (
     <div className="space-y-6" style={SANS}>
       {/* Summary cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatBadge label="Downloads Today"      value={todayDownloads.toLocaleString()} icon={Download}   color="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" sub="+18% vs yesterday" />
-        <StatBadge label="Downloads This Month"  value={monthDownloads.toLocaleString()} icon={TrendingUp} color="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" sub="+23% vs last month" />
-        <StatBadge label="New Members"           value={String(newMembers)}              icon={Users}      color="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400" sub="+8% this semester" />
-        <StatBadge label="New Resources"         value={String(newResources)}            icon={FolderOpen} color="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" sub="+31% this month" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <StatBadge label="Total Downloads" value={totalDownloads.toLocaleString()} icon={Download} color="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" sub="Live resource total" />
+        <StatBadge label="New Resources" value={String(newResources)} icon={FolderOpen} color="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" sub="This month" />
       </div>
 
       {/* Monthly downloads + upload activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card title="Monthly Downloads (12 months)">
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={MONTHLY_DOWNLOADS} barSize={14}>
+            <BarChart data={monthlyActivity} barSize={14}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
@@ -64,7 +58,7 @@ export function AnalyticsPage() {
 
         <Card title="Upload Activity (12 months)">
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={MONTHLY_DOWNLOADS}>
+            <LineChart data={monthlyActivity}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
@@ -79,7 +73,7 @@ export function AnalyticsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card title="Top Courses by Downloads">
           <div className="space-y-3">
-            {TOP_COURSES_DATA.map((d, i) => (
+            {topCourses.map((d, i) => (
               <div key={d.course}>
                 <div className="flex items-center justify-between text-xs mb-1">
                   <span className="font-bold text-slate-700 dark:text-slate-300" style={MONO}>{d.course}</span>
@@ -88,7 +82,7 @@ export function AnalyticsPage() {
                 <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
-                    style={{ width: `${(d.downloads / TOP_COURSES_DATA[0].downloads) * 100}%`, background: i === 0 ? "#16a34a" : "#22c55e" }}
+                    style={{ width: `${topCourses[0]?.downloads ? (d.downloads / topCourses[0].downloads) * 100 : 0}%`, background: i === 0 ? "#16a34a" : "#22c55e" }}
                   />
                 </div>
               </div>
@@ -99,14 +93,14 @@ export function AnalyticsPage() {
         <Card title="Top Categories">
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
-              <Pie data={CATEGORY_DATA} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value">
-                {CATEGORY_DATA.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+              <Pie data={topCategories} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value">
+                {topCategories.map((entry, i) => <Cell key={i} fill={entry.color} />)}
               </Pie>
               <Tooltip formatter={(v: number) => [`${v}%`, ""]} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
             </PieChart>
           </ResponsiveContainer>
           <div className="space-y-1 mt-2">
-            {CATEGORY_DATA.map(d => (
+            {topCategories.map(d => (
               <div key={d.name} className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full" style={{ background: d.color }} />

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { countCourses } from '../utils/data/courses'
 import { countPrograms } from '../utils/data/programmes'
 import { countResources } from '../utils/data/resources'
@@ -10,42 +11,20 @@ type CountState = {
   refetch: () => void
 }
 
-function useCount(loader: () => Promise<number>, dependencies: unknown[]): CountState {
-  const [count, setCount] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [reload, setReload] = useState(0)
-  const refetch = useCallback(() => setReload(value => value + 1), [])
+function useCount(loader: () => Promise<number>, queryKey: readonly unknown[]): CountState {
+  const query = useQuery({ queryKey, queryFn: loader })
+  const refetch = useCallback(() => { void query.refetch() }, [query])
 
-  useEffect(() => {
-    let active = true
-    setLoading(true)
-    setError('')
-
-    loader()
-      .then(value => {
-        if (active) setCount(value)
-      })
-      .catch(() => {
-        if (active) {
-          setCount(0)
-          setError('Unable to calculate this count right now.')
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
-
-    return () => { active = false }
-    // The domain identifiers are supplied by the caller and intentionally control this request.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...dependencies, reload])
-
-  return { count, loading, error, refetch }
+  return {
+    count: query.data ?? 0,
+    loading: query.isPending,
+    error: query.error ? 'Unable to calculate this count right now.' : '',
+    refetch,
+  }
 }
 
 export function useCalculateNumberOfCourses(options: { programId?: string; collegeId?: string } = {}): CountState {
-  return useCount(() => countCourses(options), [options.programId, options.collegeId])
+  return useCount(() => countCourses(options), ['counts', 'courses', options.programId, options.collegeId])
 }
 
 export function useCalculateNumberOfAllCourses(): CountState {
@@ -61,7 +40,7 @@ export function useCalculateNumberOfCoursesForCollege(collegeId?: string): Count
 }
 
 export function useCalculateNumberOfProgrammes(options: { collegeId?: string } = {}): CountState {
-  return useCount(() => countPrograms(options), [options.collegeId])
+  return useCount(() => countPrograms(options), ['counts', 'programs', options.collegeId])
 }
 
 export function useCalculateNumberOfAllProgrammes(): CountState {
@@ -73,7 +52,7 @@ export function useCalculateNumberOfProgrammesForCollege(collegeId?: string): Co
 }
 
 export function useCalculateNumberOfResources(options: { programId?: string; collegeId?: string } = {}): CountState {
-  return useCount(() => countResources(options), [options.programId, options.collegeId])
+  return useCount(() => countResources(options), ['counts', 'resources', options.programId, options.collegeId])
 }
 
 export function useCalculateNumberOfAllResources(): CountState {

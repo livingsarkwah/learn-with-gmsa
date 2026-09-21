@@ -1,4 +1,4 @@
-import type { Resource, Course, Program, MonthlyDownloadPoint, CategoryPoint } from "../types";
+import type { Resource, Course, Program, MonthlyDownloadPoint } from "../types";
 
 // ─── Taxonomy ─────────────────────────────────────────────────────────────────
 
@@ -478,23 +478,6 @@ export const MONTHLY_DOWNLOADS: MonthlyDownloadPoint[] = [
   { month: "Sep",  downloads: 8900,  uploads: 47 },
   { month: "Oct",  downloads: 11200, uploads: 52 },
   { month: "Nov",  downloads: 9800,  uploads: 38 },
-];
-
-export const CATEGORY_DATA: CategoryPoint[] = [
-  { name: "Lecture Notes",  value: 34, color: "#16a34a" },
-  { name: "Past Questions", value: 28, color: "#dc2626" },
-  { name: "Tutorials",      value: 16, color: "#2563eb" },
-  { name: "Slides",         value: 10, color: "#7c3aed" },
-  { name: "Textbooks",      value:  7, color: "#d97706" },
-  { name: "Others",         value:  5, color: "#64748b" },
-];
-
-export const TOP_COURSES_DATA = [
-  { course: "GE 101", downloads: 5102 },
-  { course: "AN 111", downloads: 3401 },
-  { course: "EC 101", downloads: 2890 },
-  { course: "CS 101", downloads: 4102 },
-  { course: "CH 101", downloads: 2341 },
 ];
 
 // ─── Admin stats ──────────────────────────────────────────────────────────────

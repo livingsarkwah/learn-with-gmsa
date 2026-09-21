@@ -10,6 +10,7 @@ import { getCourseById } from './courses'
 import { getResourceCollectionById } from './catalog'
 import {
   RESOURCE_BUCKET,
+  getTableRows,
   type Category,
   type College,
   type Course,
@@ -57,21 +58,36 @@ async function mapResource(row: import('./shared').Tables['resources']['Row'], c
   }
 }
 
-async function getResourceRelations(row: import('./shared').Tables['resources']['Row']) {
-  const [course, collection, category] = await Promise.all([
-    row.course_id ? getCourseById(row.course_id) : Promise.resolve(null),
-    row.collection_id ? getResourceCollectionById(row.collection_id) : Promise.resolve(null),
-    getCategoryById(row.category_id),
-  ])
-  const program = course?.program_id ? await getProgramById(course.program_id) : null
-  const college = program?.college_id ? await getCollegeById(program.college_id) : null
-  return { course, program, college, collection, category }
-}
-
 async function mapRows(rows: import('./shared').Tables['resources']['Row'][]) {
+  const courses: Course[] = await getTableRows('courses')
+  const categories: Category[] = await getTableRows('categories')
+  const collections: ResourceCollection[] = await getTableRows('resource_collections')
+
+  const courseIds = new Set(rows.flatMap(row => row.course_id ? [row.course_id] : []))
+  const categoryIds = new Set(rows.map(row => row.category_id))
+  const collectionIds = new Set(rows.flatMap(row => row.collection_id ? [row.collection_id] : []))
+  const courseRows = courses.filter(course => courseIds.has(course.id))
+  const categoryRows = categories.filter(category => categoryIds.has(category.id))
+  const collectionRows = collections.filter(collection => collectionIds.has(collection.id))
+  const courseById = new Map(courseRows.map(course => [course.id, course]))
+  const categoryById = new Map(categoryRows.map(category => [category.id, category]))
+  const collectionById = new Map(collectionRows.map(collection => [collection.id, collection]))
+  const programIds = new Set(courseRows.flatMap(course => course.program_id ? [course.program_id] : []))
+  const allPrograms: Program[] = await getTableRows('programs')
+  const programRows = allPrograms.filter(program => programIds.has(program.id))
+  const programById = new Map(programRows.map(program => [program.id, program]))
+  const collegeIds = new Set(programRows.flatMap(program => program.college_id ? [program.college_id] : []))
+  const allColleges: College[] = await getTableRows('colleges')
+  const collegeRows = allColleges.filter(college => collegeIds.has(college.id))
+  const collegeById = new Map(collegeRows.map(college => [college.id, college]))
+
   return Promise.all(rows.map(async row => {
-    const relations = await getResourceRelations(row)
-    return mapResource(row, relations.course, relations.program, relations.college, relations.collection, relations.category)
+    const course = row.course_id ? courseById.get(row.course_id) ?? null : null
+    const program = course?.program_id ? programById.get(course.program_id) ?? null : null
+    const college = program?.college_id ? collegeById.get(program.college_id) ?? null : null
+    const collection = row.collection_id ? collectionById.get(row.collection_id) ?? null : null
+    const category = categoryById.get(row.category_id) ?? null
+    return mapResource(row, course, program, college, collection, category)
   }))
 }
 

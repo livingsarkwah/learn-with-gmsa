@@ -1,17 +1,15 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { Download, Users, HardDrive, FolderOpen, TrendingUp, TrendingDown, Upload, Plus, UserPlus, BookOpen, ArrowUpRight } from "lucide-react";
+import { Download, HardDrive, FolderOpen, TrendingUp, TrendingDown, Upload, Plus, BookOpen, ArrowUpRight } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from "recharts";
-import { ADMIN_STATS, MONTHLY_DOWNLOADS, CATEGORY_DATA } from "../../constants/data";
+import { ADMIN_STATS } from "../../constants/data";
 import { badgeClass, fmtNumFull, MONO, SANS, statusBadge } from "../../utils";
-import { getResources } from "../../utils/data/resources";
-import type { Resource } from "../../types";
+import { useRealtimeAnalytics } from "../../hooks/useRealtimeAnalytics";
 
 function StatCard({ label, value, icon: Icon, delta, positive, color }: {
-  label: string; value: string; icon: React.ElementType; delta: string; positive: boolean; color: string;
+  label: string; value: string; icon: React.ElementType; delta?: string; positive: boolean; color: string;
 }) {
   return (
     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5" style={SANS}>
@@ -19,10 +17,9 @@ function StatCard({ label, value, icon: Icon, delta, positive, color }: {
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
           <Icon className="w-5 h-5" />
         </div>
-        <span className={`flex items-center gap-1 text-xs font-bold ${positive ? "text-emerald-600" : "text-red-500"}`}>
-          {positive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-          {delta}
-        </span>
+        {delta && <span className={`flex items-center gap-1 text-xs font-bold ${positive ? "text-emerald-600" : "text-red-500"}`}>
+          {positive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}{delta}
+        </span>}
       </div>
       <p className="text-2xl font-black text-slate-900 dark:text-white mb-0.5" style={MONO}>{value}</p>
       <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{label}</p>
@@ -32,23 +29,7 @@ function StatCard({ label, value, icon: Icon, delta, positive, color }: {
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const [resources, setResources] = useState<Resource[]>([]);
-
-  useEffect(() => {
-    let active = true;
-
-    getResources()
-      .then(data => {
-        if (!active) return;
-        setResources(data);
-      })
-      .catch(() => {
-        if (!active) return;
-        setResources([]);
-      });
-
-    return () => { active = false; };
-  }, []);
+  const { resources, totalDownloads, monthlyActivity, topCategories } = useRealtimeAnalytics();
 
   const recent = [...resources].sort((a, b) => b.uploadDate.localeCompare(a.uploadDate)).slice(0, 6);
   const totalResources = resources.length;
@@ -58,8 +39,7 @@ export function DashboardPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Total Resources"    value={fmtNumFull(totalResources)}                 icon={FolderOpen} delta={ADMIN_STATS.resourcesDelta} positive color="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400" />
-        <StatCard label="Total Downloads"    value={fmtNumFull(ADMIN_STATS.totalDownloads)}    icon={Download}   delta={ADMIN_STATS.downloadsDelta} positive color="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" />
-        <StatCard label="Registered Members" value={fmtNumFull(ADMIN_STATS.registeredMembers)} icon={Users}      delta={ADMIN_STATS.membersDelta}   positive color="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400" />
+        <StatCard label="Total Downloads"    value={fmtNumFull(totalDownloads)}                 icon={Download}   positive color="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" />
         <StatCard label="Storage Used"       value={`${ADMIN_STATS.storageUsedGB} / ${ADMIN_STATS.storageMaxGB} GB`} icon={HardDrive} delta={ADMIN_STATS.storageDelta} positive color="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400" />
       </div>
 
@@ -130,7 +110,7 @@ export function DashboardPage() {
         <div className="lg:col-span-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5">
           <h2 className="font-bold text-slate-900 dark:text-white mb-4">Downloads This Month</h2>
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={MONTHLY_DOWNLOADS} barSize={14}>
+            <BarChart data={monthlyActivity} barSize={14}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
@@ -144,14 +124,14 @@ export function DashboardPage() {
           <h2 className="font-bold text-slate-900 dark:text-white mb-4">Top Categories</h2>
           <ResponsiveContainer width="100%" height={160}>
             <PieChart>
-              <Pie data={CATEGORY_DATA} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
-                {CATEGORY_DATA.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+              <Pie data={topCategories} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
+                {topCategories.map((entry, i) => <Cell key={i} fill={entry.color} />)}
               </Pie>
               <Tooltip formatter={(v: number) => [`${v}%`, ""]} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
             </PieChart>
           </ResponsiveContainer>
           <div className="space-y-1.5 mt-2">
-            {CATEGORY_DATA.slice(0, 4).map(d => (
+            {topCategories.slice(0, 4).map(d => (
               <div key={d.name} className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-full" style={{ background: d.color }} />

@@ -1,60 +1,196 @@
-## Project Assessment
+Created 3 todos
 
-The project is currently a strong UI prototype, but not yet a working production application.
+Updated todo list
 
-### Highest-priority work
+I’ll trace the current data-loading path, cache-related hooks, and Supabase usage first, then I’ll turn that into a concrete strategy with the smallest set of changes and the tradeoffs called out.
 
-1. **Connect the app to real data**
-   - Public and admin pages use static data from `data.ts`.
-   - Supabase is initialized in `supabase.ts`, but no page actually queries it.
-   - `schema.sql` is empty.
-   - Build the database schema, RLS policies, storage bucket, and data-access hooks first.
+Read memory
 
-2. **Replace fake authentication**
-   - Admin access currently depends on a hard-coded password in `AppContext.tsx:20`.
-   - Student login and OTP are simulated with `setTimeout` in `LoginPage.tsx:19`.
-   - Replace both with real Supabase/server-side authentication and persistent sessions.
+Read memory 
 
-3. **Make downloads and uploads real**
-   - Resource downloads only change a local `downloaded` flag in `DetailsPage.tsx:76`.
-   - Upload progress is simulated in `UploadPage.tsx:73`.
-   - Implement Supabase Storage uploads, signed download URLs, file validation, download tracking, retry handling, and access rules.
+Search complete: Trace data loading
 
-4. **Finish admin CRUD**
-   - Add, edit, and delete controls in `CoursesPage.tsx` and `ProgramsPage.tsx` are mostly non-functional.
-   - Resource deletion and action menus in `ResourcesPage.tsx` need real mutations and confirmation dialogs.
-   - Settings in `SettingsPage.tsx` only update component state.
+Searched codebase for "React/Vite app data fetching architecture inspect getData utilities AppContext Supabase calls", 19 results
 
-5. **Fix data and navigation correctness**
-   - Invalid resource IDs fall back to the first resource in `DetailsPage.tsx:17`; this should show a real not-found state.
-   - Library filters are initialized from the URL only once in `LibraryPage.tsx:21`, so browser back/forward can produce stale filters.
-   - Search filters do not consistently preserve semester and URL state in `SearchPage.tsx:19`.
-   - Public pages should exclude drafts and enforce member-only visibility.
+Searched for files matching `**/getData.*`, 1 match
 
-6. **Replace static analytics**
-   - Dashboard and analytics values come from fixed constants in `DashboardPage.tsx` and `AnalyticsPage.tsx`.
-   - Add real download, upload, member, and storage event tracking before relying on these metrics.
+Searched for files matching `**/AppContext.*`, 1 match
 
-7. **Add verification tooling**
-   - `package.json` has only `dev` and `build` scripts.
-   - Add typechecking, linting, unit tests, and browser tests.
-   - Current editor diagnostics are clean, but the project has no automated quality gate.
+Searched for files matching `**/supabase*.*`, 1 match
 
-## Recommended Implementation Order
+No matches found. Your search pattern might be excluded completely by either the search.exclude settings or .*ignore files.
+If you believe that it should have results, you can check into the .*ignore files and the exclude setting (here are some excluded patterns for reference:[**/node_modules,**/bower_components,**/*.code-search]).
+Then if you want to include those files you can call the tool again by setting "includeIgnoredFiles" to true.
 
-1. Establish the database schema, seed data, storage policies, and RLS.
-2. Create shared data-access hooks and replace static resource/course/program reads.
-3. Implement real admin and member authentication.
-4. Wire public browsing, search, bookmarks, downloads, and semester packs.
-5. Wire admin upload, resource management, courses, programs, settings, and analytics.
-6. Add loading, error, empty, accessibility, and responsive states.
-7. Add tests, deployment configuration, documentation, and security review.
+Searched for regex `stale-while-revalidate|swr|tanstack|query.client|useQuery|useMutation`, 2 results
 
-## Important Supporting Work
+Searched for files matching `**/hooks/**/*.{ts,tsx}`, 4 matches
 
-- Persist theme and bookmarks instead of keeping them only in memory.
-- Remove the unused duplicate layout path between `PublicLayout.tsx` and `PublicRoot.tsx`.
-- Add accessible labels and keyboard behavior to icon-only controls.
-- Add loading and retry states for every asynchronous workflow.
-- Verify copyright/licensing permission for textbooks, past questions, videos, and uploaded materials.
-- Update `README.md` with migrations, environment variables, deployment, backups, and RLS setup.
+Searched for files matching `**/*analytics*.*`, 2 matches
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+The first pass found the main bottleneck: resource mapping performs several per-resource relation lookups and signed-URL work, while the analytics hook keeps data only in component state. I’m checking the package and page-level fetch patterns now, because the right cache boundary depends on whether these queries are shared across routes or isolated.
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+Search complete: Find fetch consumers
+
+Searched codebase for "getResources getAdminResources getPrograms getCourses getCategories getResourceCollections countResources useDataCounts", 16 results
+
+Searched for regex `getResources|getAdminResources|getPrograms|getCourses|getCategories|getResourceCollections|countResources|useDataCounts`, 31 results
+
+Searched for files matching `**/*.{ts,tsx,js,jsx,react,component}`, 93 matches
+
+No matches found. Your search pattern might be excluded completely by either the search.exclude settings or .*ignore files.
+If you believe that it should have results, you can check into the .*ignore files and the exclude setting (here are some excluded patterns for reference:[**/node_modules,**/bower_components,**/*.code-search]).
+Then if you want to include those files you can call the tool again by setting "includeIgnoredFiles" to true.
+
+Searched for regex `loading.*resources|error.*resources|refetch.*resources|realtime.*resources|useDataCounts`, 13 results
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+Read , lines 1 to 280
+
+Read , lines 1 to 220
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+The shared-query pattern is clear now: Home, Library, Search, admin Resources, and analytics all independently request resources, so `useMemo` alone cannot solve the wait or duplicate requests. The more important issue is in `getResources`: each resource fans out into course, program, college, collection, category, and signed-URL calls, which makes a single cache entry expensive to populate. I’m doing one final routing check, then I’ll ask one scope question before locking the plan.
+
+Read 
+
+Read 
+
+Read 
+
+Read 
+
+Analyzing your answers...
+
+You chose TanStack Query with a short freshness window, which fits the app well. The plan will combine shared stale-while-revalidate queries with a data-layer optimization: cache alone would make repeat visits fast, but the first fetch still suffers from the resource-by-resource relation fan-out, so that query needs to be flattened or bulk-loaded too.
+
+Created memory file 
+
+## Plan: Shared Stale Resource Cache
+
+Use TanStack Query for shared server-state caching and stale-while-revalidate behavior. Users will see cached data immediately, while fresh data loads in the background. Also optimize the resource query itself, since it currently performs many per-resource relation and signed-URL requests.
+
+**Steps**
+1. Add TanStack Query and configure a shared `QueryClient` with:
+   - 2-5 minute `staleTime`
+   - Request deduplication
+   - Retry/backoff
+   - Refetch on focus/reconnect
+   - Cached data retained during refresh
+
+2. Add shared query hooks for:
+   - Published resources
+   - Admin resources
+   - Individual resources
+   - Courses, programs, colleges, categories, collections
+   - Counts
+
+3. Migrate Home, Library, Search, Admin Resources, Dashboard, Analytics, and realtime analytics to those hooks.
+
+4. Update loading states:
+   - Show skeleton/loading UI only when no cached data exists.
+   - Keep stale data visible during background refresh.
+   - Show a small “updating” indicator while `isFetching` is true.
+   - Preserve cached data when a refresh fails.
+
+5. Optimize `resources.ts`. The current `mapRows` function can trigger several relation queries per resource. Replace that with:
+   - One joined Supabase query, if generated types support it, or
+   - Bulk relation fetches followed by in-memory ID mapping.
+
+6. Invalidate relevant query keys after admin mutations and download-count updates.
+
+7. Connect Supabase realtime events to query invalidation, with event coalescing/debouncing so bursts do not trigger repeated fetches.
+
+8. Optionally persist safe public/catalog data to `localStorage`. Do not persist admin data or long-lived signed URLs.
+
+**Relevant files**
+
+- `package.json` — add TanStack Query dependencies.
+- `App.tsx` — add the query provider.
+- `src/lib/queryClient.ts` — central query configuration.
+- `hooks` or `src/lib/queries` — shared query hooks and query keys.
+- `resources.ts` — remove the N+1 relation-fetch pattern.
+- `HomePage.tsx` — shared published-resource query.
+- `LibraryPage.tsx` — cached resource display.
+- `SearchPage.tsx` — reuse the resource cache.
+- `ResourcesPage.tsx` — mutation invalidation.
+- `useRealtimeAnalytics.ts` — shared admin query and realtime invalidation.
+- `DashboardPage.tsx` and `AnalyticsPage.tsx` — shared analytics data.
+- `useDataCounts.ts` — cached count queries.
+- `README.md` — document caching and freshness behavior.
+
+**Verification**
+
+1. Run `pnpm build`.
+2. Navigate Home -> Library -> Search and confirm only one shared resource request occurs.
+3. Revisit pages within the freshness window and confirm cached data appears immediately.
+4. Throttle the network and confirm stale data remains visible during refresh.
+5. Verify refresh errors retain the previous successful data.
+6. Create, update, and delete an admin resource, then confirm Dashboard, Analytics, and Resources update without a full reload.
+7. Compare Supabase request counts before and after the relation-loading optimization.
+
+**Decisions**
+
+- Use TanStack Query instead of `useMemo`; `useMemo` only optimizes local calculations and does not cache server data.
+- Use approximately 2-5 minutes of staleness initially.
+- Avoid fake placeholder records.
+- Keep Supabase and the existing demo-data fallback.
+- Exclude broad UI redesign and server-side pagination/search changes from this work.
+
+The plan is saved in `/memories/session/plan.md`.
+
+Created 4 todos

@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Download, Bookmark, BookmarkCheck, FileText, Play, Share2, ExternalLink, Copy, Mail, Send, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import type { Resource, ResourceId } from "../../types";
 import { COLLECTION_ACCENT } from "../../constants/data";
 import { badgeClass, fmtNum, shortProg, MONO, SANS } from "../../utils";
 import { incrementDownloadCount } from "../../utils/data/resources";
+import { resourceQueryKeys } from "../../hooks/useResourceQueries";
 
 interface Props {
   resource: Resource;
@@ -23,6 +25,7 @@ export function ResourceCard({ resource: r, bookmarks, onBookmark, onOpen, compa
   const saved  = bookmarks.some(id => id === r.id);
   const accent = COLLECTION_ACCENT[r.collection];
   const [shareOpen, setShareOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   function getShareDetails() {
     const url = `${window.location.origin}/resources/${encodeURIComponent(String(r.id))}`;
@@ -63,7 +66,11 @@ export function ResourceCard({ resource: r, bookmarks, onBookmark, onOpen, compa
   }
 
   function downloadResource() {
-    if (r.type !== "Video") void incrementDownloadCount(r.id);
+    if (r.type !== "Video") {
+      void incrementDownloadCount(r.id).then(() => {
+        void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.all });
+      });
+    }
   }
 
   return (

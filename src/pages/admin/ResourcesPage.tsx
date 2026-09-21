@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import {
   Search, ChevronDown, Upload, Trash2, Edit, Eye, RefreshCw,
@@ -9,6 +10,7 @@ import { PROGRAMS, LEVELS, SEMESTERS, COLLECTIONS, RESOURCE_TYPES } from "../../
 import { badgeClass, statusBadge, fmtNum, MONO, SANS, shortProg } from "../../utils";
 import type { Resource } from "../../types";
 import { deleteAdminResource, getAdminResources, replaceAdminResourceFile, replaceAdminResourceLink, updateAdminResource } from "../../utils/data/resources";
+import { resourceQueryKeys, useAdminResources } from "../../hooks/useResourceQueries";
 
 const PAGE_SIZE = 8;
 
@@ -35,8 +37,10 @@ type ActionMenu = { id: string; open: boolean };
 
 export function ResourcesPage() {
   const navigate = useNavigate();
-  const [resources, setResources] = useState<Resource[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const resourcesQuery = useAdminResources();
+  const resources = resourcesQuery.data ?? [];
+  const loading = resourcesQuery.isPending;
   const [search, setSearch]   = useState("");
   const [program, setProgram] = useState("");
   const [level, setLevel]     = useState("");
@@ -56,28 +60,9 @@ export function ResourcesPage() {
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [editUrl, setEditUrl] = useState("");
 
-  function loadResources() {
-    return getAdminResources().then(data => setResources(data));
+  async function loadResources() {
+    await queryClient.invalidateQueries({ queryKey: resourceQueryKeys.admin() });
   }
-
-  useEffect(() => {
-    let active = true;
-
-    getAdminResources()
-      .then(data => {
-        if (!active) return;
-        setResources(data);
-      })
-      .catch(() => {
-        if (!active) return;
-        setResources([]);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-
-    return () => { active = false; };
-  }, []);
 
   async function deleteResources(ids: string[]) {
     if (!ids.length || !window.confirm(`Delete ${ids.length} resource${ids.length === 1 ? "" : "s"}? This also removes uploaded files.`)) return;

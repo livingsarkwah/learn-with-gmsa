@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { Search, Filter, LayoutGrid, LayoutList, Bookmark, BookmarkCheck } from "lucide-react";
 import { ResourceCard } from "../../components/common/ResourceCard";
 import { FilterSidebar } from "../../components/common/FilterSidebar";
 import { COLLEGE_PROGRAMS } from "../../constants/data";
 import { useApp } from "../../lib/AppContext";
-import { getResources } from "../../utils/data/resources";
+import { useResources } from "../../hooks/useResourceQueries";
 import { academicLabelsMatch } from "../../utils/data/shared";
 import type { Filters, Resource } from "../../types";
 import { badgeClass, MONO, SANS } from "../../utils";
@@ -19,51 +19,35 @@ export function SearchPage() {
   const urlQuery = searchParams.get("q") ?? "";
   const [inputQuery, setInputQuery] = useState(urlQuery);
   const [filters, setFilters] = useState<Filters>(EMPTY);
-  const [results, setResults] = useState<Resource[]>([]);
-  const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [grid, setGrid] = useState(true);
+  const resourcesQuery = useResources();
+  const resources = resourcesQuery.data ?? [];
 
   useEffect(() => { setInputQuery(urlQuery); }, [urlQuery]);
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
+  const results = useMemo(() => {
+    if (!urlQuery) return [];
+    const q = urlQuery.toLowerCase();
+    return resources.filter(r => {
+      if (!r.title.toLowerCase().includes(q) && !r.courseCode.toLowerCase().includes(q) && !r.courseTitle.toLowerCase().includes(q) && !r.tags.some(t => t.toLowerCase().includes(q)) && !r.program.toLowerCase().includes(q)) return false;
+      if (filters.college) {
+        const cp = COLLEGE_PROGRAMS[filters.college] ?? [];
+        const matchesCollege = r.college && academicLabelsMatch(r.college, filters.college);
+        const matchesCollegeProgram = cp.some(program => academicLabelsMatch(program, r.program));
+        if (!matchesCollege && !matchesCollegeProgram) return false;
+      }
+      if (filters.program && !academicLabelsMatch(r.program, filters.program)) return false;
+      if (filters.level && r.level !== filters.level) return false;
+      if (filters.semester && r.semester !== filters.semester) return false;
+      if (filters.collection && r.collection !== filters.collection) return false;
+      if (filters.type && r.type !== filters.type) return false;
+      return true;
+    });
+  }, [filters, resources, urlQuery]);
 
-    getResources()
-      .then(resources => {
-        if (!active) return;
-
-        const nextResults = urlQuery
-          ? resources.filter(r => {
-              const q = urlQuery.toLowerCase();
-              if (!r.title.toLowerCase().includes(q) && !r.courseCode.toLowerCase().includes(q) && !r.courseTitle.toLowerCase().includes(q) && !r.tags.some(t => t.toLowerCase().includes(q)) && !r.program.toLowerCase().includes(q)) return false;
-              if (filters.college) {
-                const cp = COLLEGE_PROGRAMS[filters.college] ?? [];
-                const matchesCollege = r.college && academicLabelsMatch(r.college, filters.college);
-                const matchesCollegeProgram = cp.some(program => academicLabelsMatch(program, r.program));
-                if (!matchesCollege && !matchesCollegeProgram) return false;
-              }
-              if (filters.program && !academicLabelsMatch(r.program, filters.program)) return false;
-              if (filters.level && r.level !== filters.level) return false;
-              if (filters.semester && r.semester !== filters.semester) return false;
-              if (filters.collection && r.collection !== filters.collection) return false;
-              if (filters.type && r.type !== filters.type) return false;
-              return true;
-            })
-          : [];
-
-        setResults(nextResults);
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!active) return;
-        setResults([]);
-        setLoading(false);
-      });
-
-    return () => { active = false; };
-  }, [urlQuery, filters.college, filters.program, filters.level, filters.collection, filters.type]);
+  const loading = resourcesQuery.isPending;
+  const fetching = resourcesQuery.isFetching;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -125,10 +109,16 @@ export function SearchPage() {
         )}
 
         <div className="flex-1 min-w-0">
-          {loading ? (
+          {loading && resources.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <Search className="w-14 h-14 text-muted-foreground/20 mb-4" />
               <p className="font-bold text-foreground mb-1">Searching resources…</p>
+            </div>
+          ) : resourcesQuery.error && resources.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <Search className="w-14 h-14 text-muted-foreground/20 mb-4" />
+              <p className="font-bold text-foreground mb-1">Unable to load resources</p>
+              <p className="text-sm text-muted-foreground">Please try again shortly.</p>
             </div>
           ) : results.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -162,6 +152,7 @@ export function SearchPage() {
               })}
             </div>
           )}
+          {fetching && resources.length > 0 && <p className="mt-4 text-center text-xs text-muted-foreground">Updating resources…</p>}
         </div>
       </div>
     </div>

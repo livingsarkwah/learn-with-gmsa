@@ -1,38 +1,24 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { Award, FolderOpen, GraduationCap, BookOpen, Users, ArrowRight, LogIn, Search, PackageOpen } from "lucide-react";
 import { ResourceCard } from "../../components/common/ResourceCard";
 import { Footer } from "../../components/layout/Footer";
 import { POPULAR_COURSES, QUICK_ACCESS } from "../../constants/data";
 import { useApp } from "../../lib/AppContext";
-import { getResources } from "../../utils/data/resources";
-import type { Resource } from "../../types";
+import { useResources } from "../../hooks/useResourceQueries";
 import { MONO, SANS } from "../../utils";
 
 export function HomePage() {
   const { bookmarks, toggleBookmark } = useApp();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [featured, setFeatured] = useState<Resource[]>([]);
-  const [recent, setRecent] = useState<Resource[]>([]);
-
-  useEffect(() => {
-    let active = true;
-
-    getResources()
-      .then(resources => {
-        if (!active) return;
-        setFeatured(resources.filter(r => r.featured).slice(0, 3));
-        setRecent([...resources].sort((a, b) => b.uploadDate.localeCompare(a.uploadDate)).slice(0, 4));
-      })
-      .catch(() => {
-        if (!active) return;
-        setFeatured([]);
-        setRecent([]);
-      });
-
-    return () => { active = false; };
-  }, []);
+  const resourcesQuery = useResources();
+  const resources = resourcesQuery.data ?? [];
+  const featured = useMemo(() => resources.filter(r => r.featured).slice(0, 3), [resources]);
+  const recent = useMemo(
+    () => [...resources].sort((a, b) => b.uploadDate.localeCompare(a.uploadDate)).slice(0, 4),
+    [resources],
+  );
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();

@@ -4,9 +4,9 @@ import { Filter, LayoutGrid, FolderOpen, LayoutList, Bookmark, BookmarkCheck, Do
 import { ResourceCard } from "../../components/common/ResourceCard";
 import { FilterSidebar } from "../../components/common/FilterSidebar";
 import { COLLEGE_PROGRAMS } from "../../constants/data";
-import { getResourceById, getResources } from "../../utils/data/resources";
 import { academicLabelsMatch } from "../../utils/data/shared";
 import { useApp } from "../../lib/AppContext";
+import { useResource, useResources } from "../../hooks/useResourceQueries";
 import type { Filters } from "../../types";
 import { badgeClass, fmtNum, shortProg, MONO, SANS } from "../../utils";
 
@@ -18,9 +18,14 @@ export function LibraryPage() {
   const { resourceId: pathResourceId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const resourceId = pathResourceId ?? searchParams.get("resourceId");
-  const [resources, setResources] = useState<import("../../types").Resource[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const resourcesQuery = useResources();
+  const resourceQuery = useResource(resourceId ?? undefined);
+  const resources = resourceId
+    ? resourceQuery.data ? [resourceQuery.data] : []
+    : resourcesQuery.data ?? [];
+  const loading = resourceId ? resourceQuery.isPending : resourcesQuery.isPending;
+  const fetching = resourceId ? resourceQuery.isFetching : resourcesQuery.isFetching;
+  const error = resourceId ? resourceQuery.error : resourcesQuery.error;
   const sharedResourceRef = useRef<HTMLDivElement | null>(null);
 
   // Sync filters with URL search params
@@ -36,26 +41,6 @@ export function LibraryPage() {
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [grid, setGrid] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError("");
-
-    const request = resourceId ? getResourceById(resourceId).then(resource => resource ? [resource] : []) : getResources();
-    request.then(nextResources => {
-      if (!active) return;
-      setResources(nextResources);
-      setLoading(false);
-    }).catch(() => {
-      if (!active) return;
-      setResources([]);
-      setError("Unable to load resources right now.");
-      setLoading(false);
-    });
-
-    return () => { active = false; };
-  }, [resourceId]);
 
   useEffect(() => {
     if (!loading && resourceId && sharedResourceRef.current) {
@@ -136,10 +121,10 @@ export function LibraryPage() {
         )}
 
         <div className="flex-1 min-w-0">
-          {loading ? (
+          {loading && resources.length === 0 ? (
             <div className="py-24 text-center text-sm text-muted-foreground">Loading resources…</div>
-          ) : error ? (
-            <div className="py-24 text-center text-sm text-destructive">{error}</div>
+          ) : error && resources.length === 0 ? (
+            <div className="py-24 text-center text-sm text-destructive">Unable to load resources right now.</div>
           ) : results.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 text-center">
               <FolderOpen className="w-14 h-14 text-muted-foreground/30 mb-4" />
@@ -180,6 +165,9 @@ export function LibraryPage() {
                 );
               })}
             </div>
+          )}
+          {fetching && resources.length > 0 && (
+            <p className="mt-4 text-center text-xs text-muted-foreground">Updating resources…</p>
           )}
         </div>
       </div>
