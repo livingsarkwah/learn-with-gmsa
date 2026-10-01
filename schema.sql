@@ -29,11 +29,6 @@ create policy "Admins can delete resource files" on storage.objects
 for delete to authenticated
 using (bucket_id = 'resources' and public.is_admin());
 
-drop policy if exists "Public can read resource files" on storage.objects;
-create policy "Public can read resource files" on storage.objects
-for select
-using (bucket_id = 'resources');
-
 create table if not exists public.admins (
   id uuid primary key default uuid_generate_v4(),
   email text not null unique,
@@ -157,6 +152,8 @@ create table if not exists public.bookmarks (
   unique (resource_id)
 );
 
+alter table public.bookmarks enable row level security;
+
 create index if not exists idx_resources_created_at on public.resources(created_at desc);
 create index if not exists idx_resources_course_id on public.resources(course_id);
 create index if not exists idx_resources_collection_id on public.resources(collection_id);
@@ -167,6 +164,24 @@ alter table public.programs enable row level security;
 alter table public.courses enable row level security;
 alter table public.categories enable row level security;
 alter table public.resource_collections enable row level security;
+
+drop policy if exists "Public can read resource files" on storage.objects;
+create policy "Public can read resource files" on storage.objects
+for select
+using (
+  bucket_id = 'resources'
+  and exists (
+    select 1
+    from public.resources
+    where resources.file_url = name
+      and resources.status = 'published'
+  )
+);
+
+drop policy if exists "Admins can read resource files" on storage.objects;
+create policy "Admins can read resource files" on storage.objects
+for select to authenticated
+using (bucket_id = 'resources' and public.is_admin());
 
 create policy "Public can read published resources" on public.resources
 for select using (status = 'published');

@@ -77,27 +77,27 @@ export function CoursesPage() {
     <div className="space-y-4" style={SANS}>
       {/* Toolbar */}
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search by code or title…"
-            className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="w-full pl-9 pr-3 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
 
-        <select value={program} onChange={e => { setProgram(e.target.value); setPage(1); }} className="text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30">
+        <select value={program} onChange={e => { setProgram(e.target.value); setPage(1); }} className="w-full sm:w-auto min-w-0 text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30">
           <option value="">All Programs</option>
           {PROGRAMS.map(p => <option key={p} value={p}>{shortProg(p)}</option>)}
         </select>
 
-        <select value={level} onChange={e => { setLevel(e.target.value); setPage(1); }} className="text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30">
+        <select value={level} onChange={e => { setLevel(e.target.value); setPage(1); }} className="w-full sm:w-auto text-xs border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/30">
           <option value="">All Levels</option>
           {LEVELS.map(l => <option key={l} value={l}>Level {l}</option>)}
         </select>
 
-        <button onClick={openCreate} className="ml-auto flex items-center gap-1.5 px-3 py-2 bg-primary text-white text-xs font-bold rounded-xl"><Plus className="w-3.5 h-3.5" />Add Course</button>
+        <button onClick={openCreate} className="w-full sm:w-auto sm:ml-auto flex items-center justify-center gap-1.5 px-3 py-2 bg-primary text-white text-xs font-bold rounded-xl"><Plus className="w-3.5 h-3.5" />Add Course</button>
       </div>
 
       {loading && <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 text-sm text-slate-500">Loading courses…</div>}
@@ -108,10 +108,10 @@ export function CoursesPage() {
           <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-800 p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-5"><h2 className="font-bold text-slate-900 dark:text-white">{editing ? "Edit Course" : "Add Course"}</h2><button onClick={() => setEditing(undefined)}><X className="w-5 h-5" /></button></div>
             <div className="space-y-3">
-              <input value={code} onChange={e => setCode(e.target.value)} placeholder="Course code" className="w-full text-sm border rounded-xl px-3 py-2.5 bg-transparent" />
-              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Course title" className="w-full text-sm border rounded-xl px-3 py-2.5 bg-transparent" />
-              <select value={programId} onChange={e => setProgramId(e.target.value)} className="w-full text-sm border rounded-xl px-3 py-2.5 bg-transparent"><option value="">Select programme</option>{programs.map(program => <option key={program.id} value={program.id}>{program.name}</option>)}</select>
-              <div className="grid grid-cols-2 gap-3"><select value={courseLevel} onChange={e => setCourseLevel(e.target.value)} className="text-sm border rounded-xl px-3 py-2.5 bg-transparent">{LEVELS.map(level => <option key={level} value={level}>Level {level}</option>)}</select><select value={semester} onChange={e => setSemester(e.target.value)} className="text-sm border rounded-xl px-3 py-2.5 bg-transparent"><option value="1">First semester</option><option value="2">Second semester</option></select></div>
+              <input value={code} onChange={e => setCode(e.target.value)} placeholder="Course code" className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Course title" className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30" />
+              <select value={programId} onChange={e => setProgramId(e.target.value)} className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/30"><option value="">Select programme</option>{programs.map(program => <option key={program.id} value={program.id}>{program.name}</option>)}</select>
+              <div className="grid grid-cols-2 gap-3"><select value={courseLevel} onChange={e => setCourseLevel(e.target.value)} className="text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/30">{LEVELS.map(level => <option key={level} value={level}>Level {level}</option>)}</select><select value={semester} onChange={e => setSemester(e.target.value)} className="text-sm border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2.5 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/30"><option value="1">First semester</option><option value="2">Second semester</option></select></div>
               <button onClick={() => void saveCourse()} disabled={saving} className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Saving…" : "Save Course"}</button>
             </div>
           </div>

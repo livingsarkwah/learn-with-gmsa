@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
+import JSZip from "jszip";
 import {
   ArrowLeft, PackageOpen, ChevronRight, Download,
   FolderOpen, CheckCircle2, FileText, Video, FileQuestion,
 } from "lucide-react";
 import { COLLEGES, COLLEGE_PROGRAMS, LEVELS, SEMESTERS, COLLECTION_ACCENT } from "../../constants/data";
-import { getResources } from "../../utils/data/resources";
+import { getResources, incrementDownloadCount } from "../../utils/data/resources";
 import { academicLabelsMatch } from "../../utils/data/shared";
 import { shortProg, badgeClass, MONO, SANS } from "../../utils";
 import type { Resource } from "../../types";
+import { fetchResourceBlob, sanitizeDownloadFilename } from "../../utils/downloads";
 
 // College colour accents for the step-1 cards
 const COLLEGE_PALETTE: Record<string, { bg: string; border: string; text: string; icon: string }> = {
@@ -38,6 +40,9 @@ export function SemesterPackPage() {
   const [semester, setSemester] = useState("");
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
+  const [packProgress, setPackProgress] = useState(0);
+  const [packError, setPackError] = useState("");
+  const [packStatus, setPackStatus] = useState<"idle" | "downloading" | "complete">("idle");
 
   useEffect(() => {
     let active = true;
@@ -80,57 +85,96 @@ export function SemesterPackPage() {
     return true;
   });
 
-  function downloadPack() {
+  async function downloadPack() {
+    if (!matches.length || packStatus === "downloading") return;
+
+    setPackError("");
+    setPackStatus("downloading");
+    setPackProgress(0);
+
     const filename = [program || college, `L${level}`, `${semester}Sem`]
       .join("-")
       .replace(/[^a-zA-Z0-9\-]/g, "")
       .replace(/-+/g, "-");
-
-    const header = [
-      "════════════════════════════════════════════════════════════",
-      "  KNUST LEARN — SEMESTER RESOURCE PACK",
-      "════════════════════════════════════════════════════════════",
-      `  College  : ${college}`,
-      `  Programme: ${program || "(All programmes in college)"}`,
-      `  Level    : Level ${level}`,
-      `  Semester : ${semester} Semester`,
-      `  Resources: ${matches.length}`,
-      `  Generated: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`,
-      "────────────────────────────────────────────────────────────",
+    const zip = new JSZip();
+    const archiveNames = new Set<string>();
+    const manifest: string[] = [
+      "KNUST LEARN - SEMESTER RESOURCE PACK",
       "",
+      `College: ${college}`,
+      `Programme: ${program || "(All programmes in college)"}`,
+      `Level: ${level}`,
+      `Semester: ${semester}`,
+      `Resources selected: ${matches.length}`,
+      "",
+      "Files:",
     ];
 
-    const lines = matches.map((r, i) =>
-      [
-        `  ${String(i + 1).padStart(2, "0")}. ${r.title}`,
-        `      Course : ${r.courseCode} — ${r.courseTitle}`,
-        `      Type   : ${r.collection} | ${r.type}`,
-        `      Level  : Level ${r.level}, ${r.semester} Semester`,
-        "",
-      ].join("\n")
-    );
+    function archiveSegment(value: string, fallback: string) {
+      return sanitizeDownloadFilename(value, fallback).replace(/\s+/g, " ").trim() || fallback;
+    }
 
-    const footer = [
-      "────────────────────────────────────────────────────────────",
-      "  This manifest lists resources available on KNUST Learn.",
-      "  Sign in with your Student ID to download individual files.",
-      "════════════════════════════════════════════════════════════",
-    ];
+    function uniqueArchiveName(directory: string, name: string) {
+      const originalName = name;
+      let archivePath = `${directory}/${name}`;
+      let attempt = 1;
+      while (archiveNames.has(archivePath)) {
+        const extensionIndex = originalName.lastIndexOf(".");
+        const stem = extensionIndex > 0 ? originalName.slice(0, extensionIndex) : originalName;
+        const extension = extensionIndex > 0 ? originalName.slice(extensionIndex) : "";
+        name = `${stem} (${attempt++})${extension}`;
+        archivePath = `${directory}/${name}`;
+      }
+      archiveNames.add(archivePath);
+      return archivePath;
+    }
 
-    const content = [...header, ...lines, ...footer].join("\n");
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = `KNUST-Pack-${filename}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      for (const [index, resource] of matches.entries()) {
+        const resourceLabel = `${resource.title} (${resource.courseCode})`;
+        if (resource.type === "Video" || !resource.fileUrl) {
+          manifest.push(`- ${resourceLabel}: external video ${resource.fileUrl ?? "URL unavailable"}`);
+        } else {
+          const extension = resource.type === "PDF" ? "pdf" : "bin";
+          const courseFolder = archiveSegment(`${resource.courseCode} - ${resource.courseTitle}`, resource.courseCode || "General");
+          const categoryFolder = archiveSegment(resource.collection, "Uncategorized");
+          const directory = `files/${courseFolder}/${categoryFolder}`;
+          const archivePath = uniqueArchiveName(directory, sanitizeDownloadFilename(resource.fileName, resource.title, extension));
+          try {
+            const blob = await fetchResourceBlob(resource.fileUrl);
+            zip.file(archivePath, blob);
+            await incrementDownloadCount(resource.id);
+            manifest.push(`- ${resourceLabel}: ${archivePath}`);
+          } catch {
+            manifest.push(`- ${resourceLabel}: download failed`);
+          }
+        }
+        setPackProgress(Math.round(((index + 1) / matches.length) * 85));
+      }
 
-    toast.success(`Pack downloaded — ${matches.length} resource${matches.length !== 1 ? "s" : ""} listed`, {
-      description: `${program || college} · Level ${level} · ${semester} Semester`,
-    });
+      zip.file("MANIFEST.txt", manifest.join("\n"));
+      const blob = await zip.generateAsync(
+        { type: "blob", compression: "DEFLATE" },
+        metadata => setPackProgress(Math.min(99, 85 + Math.round(metadata.percent * 0.15))),
+      );
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `KNUST-Pack-${filename}.zip`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setPackProgress(100);
+      setPackStatus("complete");
+      toast.success(`Pack downloaded - ${matches.length} resource${matches.length !== 1 ? "s" : ""}`, {
+        description: `${program || college} · Level ${level} · ${semester} Semester`,
+      });
+    } catch {
+      setPackError("Unable to create the semester pack. Please try again.");
+      setPackStatus("idle");
+      setPackProgress(0);
+    }
   }
 
   const programList = college ? (COLLEGE_PROGRAMS[college] ?? []) : [];
@@ -152,7 +196,7 @@ export function SemesterPackPage() {
             Semester Resource Pack
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Select your college, programme, level and semester to download a resource manifest.
+            Select your college, programme, level and semester to download a zip of that semester's learning resources.
           </p>
         </div>
       </div>
@@ -305,15 +349,29 @@ export function SemesterPackPage() {
               </button>
               {matches.length > 0 && (
                 <button
-                  onClick={downloadPack}
+                  onClick={() => void downloadPack()}
+                  disabled={packStatus === "downloading"}
                   className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-bold rounded-xl hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20"
                 >
                   <Download className="w-4 h-4" />
-                  Download Pack
+                  {packStatus === "downloading" ? "Building ZIP…" : packStatus === "complete" ? "Download Again" : "Download Pack"}
                 </button>
               )}
             </div>
           </div>
+
+          {packStatus === "downloading" && (
+            <div className="mb-5 rounded-xl border border-border bg-card p-3">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                <span>Building ZIP pack</span>
+                <span>{packProgress}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div className="h-full rounded-full bg-primary transition-[width] duration-200" style={{ width: `${packProgress}%` }} />
+              </div>
+            </div>
+          )}
+          {packError && <p className="mb-5 text-sm text-destructive">{packError}</p>}
 
           {matches.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">

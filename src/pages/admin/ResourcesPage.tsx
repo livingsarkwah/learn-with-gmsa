@@ -198,7 +198,7 @@ export function ResourcesPage() {
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(1); }}
               placeholder="Search by title or course code…"
-              className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full pl-9 pr-3 py-2 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
 
@@ -364,7 +364,7 @@ export function ResourcesPage() {
             {editingResource.type === "Video" ? (
               <div className="space-y-3">
                 <label className="block text-xs font-bold uppercase tracking-widest text-slate-500">Video URL</label>
-                <input value={editUrl} onChange={event => setEditUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=…" className="w-full rounded-xl border px-3 py-2.5 text-sm bg-transparent" />
+                <input value={editUrl} onChange={event => setEditUrl(event.target.value)} placeholder="https://www.youtube.com/watch?v=…" className="w-full rounded-xl border border-slate-200 dark:border-slate-600 px-3 py-2.5 text-sm bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/30" />
               </div>
             ) : (
               <div className="space-y-3">

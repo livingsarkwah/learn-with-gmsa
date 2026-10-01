@@ -5,6 +5,7 @@ import { createAdminResource } from "../../utils/data/resources";
 import { getCategories, getResourceCollections, type Category, type ResourceCollection } from "../../utils/data/catalog";
 import { getCoursesByProgramId, type AdminCourse } from "../../utils/data/courses";
 import { getAdminPrograms, type AdminProgram } from "../../utils/data/programmes";
+import { validateResourceFile } from "../../utils/data/shared";
 import { SANS } from "../../utils";
 
 function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -102,13 +103,10 @@ export function UploadPage() {
 
   function selectFile(nextFile: File) {
     setError("");
-    if (nextFile.size > 200 * 1024 * 1024) {
-      setError("The selected file exceeds the 200 MB limit.");
-      return;
-    }
-    const allowed = ["application/pdf", "video/mp4", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
-    if (!allowed.includes(nextFile.type)) {
-      setError("Choose a PDF, MP4, DOCX, PPTX, or XLSX file.");
+    try {
+      validateResourceFile(nextFile);
+    } catch (validationError) {
+      setError(validationError instanceof Error ? validationError.message : "Choose a supported resource file.");
       return;
     }
     setFile(nextFile);

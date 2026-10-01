@@ -12,6 +12,14 @@ export type Category = Tables['categories']['Row']
 
 export const RESOURCE_BUCKET = 'resources'
 
+export const RESOURCE_MIME_TYPES = [
+  'application/pdf',
+  'video/mp4',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+] as const
+
 export interface AdminProgram {
   id: string | number
   name: string
@@ -93,6 +101,27 @@ export function requireUuid(value: string, field: string) {
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
   if (!uuidPattern.test(value)) throw new Error(`Invalid ${field}. Please reload the form and select it again.`)
   return value
+}
+
+export function validateResourceFile(file: File) {
+  if (file.size > 200 * 1024 * 1024) throw new Error('The selected file exceeds the 200 MB limit.')
+  if (!RESOURCE_MIME_TYPES.includes(file.type as typeof RESOURCE_MIME_TYPES[number])) {
+    throw new Error('Choose a PDF, MP4, DOCX, PPTX, or XLSX file.')
+  }
+}
+
+export function validateVideoUrl(value: string) {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    throw new Error('Enter a valid YouTube video link.')
+  }
+  const hostname = url.hostname.toLowerCase().replace(/^www\./, '')
+  if (!['youtube.com', 'm.youtube.com', 'youtu.be'].includes(hostname)) {
+    throw new Error('Enter a valid YouTube video link.')
+  }
+  return url.toString()
 }
 
 export function storagePath(fileUrl: string) {

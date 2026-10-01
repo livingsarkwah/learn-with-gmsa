@@ -7,6 +7,7 @@ import { COLLECTION_ACCENT } from "../../constants/data";
 import { badgeClass, fmtNum, shortProg, MONO, SANS } from "../../utils";
 import { incrementDownloadCount } from "../../utils/data/resources";
 import { resourceQueryKeys } from "../../hooks/useResourceQueries";
+import { downloadResourceFile, sanitizeDownloadFilename } from "../../utils/downloads";
 
 interface Props {
   resource: Resource;
@@ -25,6 +26,7 @@ export function ResourceCard({ resource: r, bookmarks, onBookmark, onOpen, compa
   const saved  = bookmarks.some(id => id === r.id);
   const accent = COLLECTION_ACCENT[r.collection];
   const [shareOpen, setShareOpen] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const queryClient = useQueryClient();
 
   function getShareDetails() {
@@ -65,11 +67,20 @@ export function ResourceCard({ resource: r, bookmarks, onBookmark, onOpen, compa
     else onOpen(r.id);
   }
 
-  function downloadResource() {
-    if (r.type !== "Video") {
-      void incrementDownloadCount(r.id).then(() => {
-        void queryClient.invalidateQueries({ queryKey: resourceQueryKeys.all });
-      });
+  async function downloadResource() {
+    if (!r.fileUrl || r.type === "Video" || downloading) return;
+
+    setDownloading(true);
+    try {
+      const extension = r.type === "PDF" ? "pdf" : "bin";
+      const filename = sanitizeDownloadFilename(r.fileName, r.title, extension);
+      await downloadResourceFile(r.fileUrl, filename);
+      await incrementDownloadCount(r.id);
+      await queryClient.invalidateQueries({ queryKey: resourceQueryKeys.all });
+    } catch {
+      toast.error("Unable to download this resource");
+    } finally {
+      setDownloading(false);
     }
   }
 
@@ -148,9 +159,9 @@ export function ResourceCard({ resource: r, bookmarks, onBookmark, onOpen, compa
               <ExternalLink className="w-3.5 h-3.5" />Watch
             </button>
           ) : r.fileUrl && (
-            <a href={r.fileUrl} download={r.fileName} target="_blank" rel="noreferrer" onClick={e => { e.stopPropagation(); downloadResource(); }} className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
-              <Download className="w-3.5 h-3.5" />Download
-            </a>
+            <button type="button" disabled={downloading} onClick={e => { e.stopPropagation(); void downloadResource(); }} className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline disabled:opacity-50">
+              <Download className="w-3.5 h-3.5" />{downloading ? "Downloading…" : "Download"}
+            </button>
           )}
         </div>
 

@@ -20,15 +20,19 @@ import {
   requireSupabaseConfig,
   requireUuid,
   storagePath,
+  validateResourceFile,
+  validateVideoUrl,
 } from './shared'
 
 async function resolveResourceFileUrl(filePath: string) {
   if (!hasSupabaseConfig() || /^https?:\/\//i.test(filePath)) return filePath
   const { data, error } = await supabase.storage.from(RESOURCE_BUCKET).createSignedUrl(filePath, 3600)
-  return error ? filePath : data.signedUrl
+  if (error) throw error
+  return data.signedUrl
 }
 
 function storageFilePath(file: File) {
+  validateResourceFile(file)
   const extension = file.name.match(/\.[^./\\]+$/)?.[0] ?? ''
   return `${crypto.randomUUID()}${extension.toLowerCase()}`
 }
@@ -125,10 +129,7 @@ export async function createAdminResource(source: File | string, input: Resource
   const courseId = requireUuid(input.courseId, 'course')
   const collectionId = requireUuid(input.collectionId, 'collection')
   const isExternalResource = typeof source === 'string'
-  const filePath = isExternalResource ? source : storageFilePath(source)
-  if (isExternalResource && !/^https?:\/\/\S+$/i.test(source)) {
-    throw new Error('Enter a valid HTTP or HTTPS video link.')
-  }
+  const filePath = isExternalResource ? validateVideoUrl(source) : storageFilePath(source)
   if (!isExternalResource) {
     const upload = await supabase.storage.from(RESOURCE_BUCKET).upload(filePath, source, { contentType: source.type, upsert: false })
     if (upload.error) throw upload.error
@@ -144,6 +145,7 @@ export async function createAdminResource(source: File | string, input: Resource
 
 export async function updateAdminResource(id: string, input: Partial<ResourceMutationInput>) {
   requireSupabaseConfig()
+  requireUuid(id, 'resource')
   const update: Record<string, unknown> = {}
   if (input.title !== undefined) update.title = input.title
   if (input.description !== undefined) update.description = input.description || null
@@ -159,6 +161,8 @@ export async function updateAdminResource(id: string, input: Partial<ResourceMut
 
 export async function replaceAdminResourceFile(id: string, file: File) {
   requireSupabaseConfig()
+  requireUuid(id, 'resource')
+  validateResourceFile(file)
   const current = await supabase.from('resources').select('file_url').eq('id', id).single()
   if (current.error) throw current.error
   const path = storageFilePath(file)
@@ -175,10 +179,11 @@ export async function replaceAdminResourceFile(id: string, file: File) {
 
 export async function replaceAdminResourceLink(id: string, url: string) {
   requireSupabaseConfig()
-  if (!/^https?:\/\/\S+$/i.test(url)) throw new Error('Enter a valid HTTP or HTTPS video link.')
+  const validatedUrl = validateVideoUrl(url)
+  requireUuid(id, 'resource')
   const current = await supabase.from('resources').select('file_url').eq('id', id).single()
   if (current.error) throw current.error
-  const { error } = await supabase.from('resources').update({ file_url: url, file_name: null, resource_type: 'video' } as never).eq('id', id)
+  const { error } = await supabase.from('resources').update({ file_url: validatedUrl, file_name: null, resource_type: 'video' } as never).eq('id', id)
   if (error) throw error
   const oldPath = storagePath((current.data as unknown as { file_url: string }).file_url)
   if (oldPath) await supabase.storage.from(RESOURCE_BUCKET).remove([oldPath])
@@ -186,6 +191,7 @@ export async function replaceAdminResourceLink(id: string, url: string) {
 
 export async function deleteAdminResource(id: string) {
   requireSupabaseConfig()
+  requireUuid(id, 'resource')
   const current = await supabase.from('resources').select('file_url').eq('id', id).single()
   if (current.error) throw current.error
   const { error } = await supabase.from('resources').delete().eq('id', id)
