@@ -372,6 +372,9 @@ export function SemesterPackPage() {
             </div>
           )}
           {packError && <p className="mb-5 text-sm text-destructive">{packError}</p>}
+          <p className="mb-5 text-xs text-muted-foreground">
+            YouTube resources are not included as video files. Their links are listed in the MANIFEST.txt file inside the ZIP.
+          </p>
 
           {matches.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
